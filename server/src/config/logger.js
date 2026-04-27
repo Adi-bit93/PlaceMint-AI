@@ -76,6 +76,9 @@ logger.stream = {
   write: (message) => logger.http(message.trim()),
 };
  
-module.exports = logger;
+
+export {
+    logger
+}
  
 
