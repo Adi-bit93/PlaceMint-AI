@@ -1,13 +1,10 @@
-// 📁 server/src/config/db.js
 
 const mongoose = require('mongoose');
 const logger = require('./logger');
 
 // ─── Connection Options ───────────────────────────────────────────────────────
-// These are tuned specifically for a campus portal with 1000+ concurrent users
 const MONGO_OPTIONS = {
     // Connection Pool:
-   
     maxPoolSize: 10,
     minPoolSize: 2,           // always keep 2 connections warm even when idle
 
@@ -15,7 +12,6 @@ const MONGO_OPTIONS = {
     serverSelectionTimeoutMS: 5000,
     socketTimeoutMS: 45000,
 
-    // Heartbeat: ping MongoDB every 10s to detect dead connections proactively
     heartbeatFrequencyMS: 10000,
 
     // Force IPv4 — skips trying IPv6 first, faster connection in most environments
