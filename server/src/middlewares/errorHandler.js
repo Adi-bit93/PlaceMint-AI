@@ -33,3 +33,14 @@ const handleValidationError = (err) => {
         errors,
     };
 };
+
+// JWT errors → invalid or expired token
+const handleJWTInvalid =() => ({
+    statusCode: 401,
+    message: 'Invalid token. Please log in again.'
+});
+
+const handleJWTExpired = () => ({
+    statusCode: 401,
+    message: 'Your session has expired. Please log in again.',
+})
