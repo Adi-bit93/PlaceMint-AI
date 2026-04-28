@@ -35,7 +35,7 @@ const handleValidationError = (err) => {
 };
 
 // JWT errors → invalid or expired token
-const handleJWTInvalid =() => ({
+const handleJWTInvalid = () => ({
     statusCode: 401,
     message: 'Invalid token. Please log in again.'
 });
@@ -43,4 +43,46 @@ const handleJWTInvalid =() => ({
 const handleJWTExpired = () => ({
     statusCode: 401,
     message: 'Your session has expired. Please log in again.',
-})
+});
+
+const handleMulterError = (err) => ({
+    statusCode: 400,
+    message: err.message || 'File upload error. Check file type and size.',
+});
+
+const globalErrorHandler = (err, req, res, next) => {
+    err.statusCode = err.statusCode || 500;
+
+    // full error log
+    logger.error({
+        message: err.message,
+        statusCode: err.statusCode,
+        method: req.method,
+        url: req.originalUrl,
+        ip: req.ip,
+        userId: req.user?.id || 'unauthenticated',
+        stack: err.stack,
+    });
+
+    let response = { statusCode: err.statusCode, message: err.message };
+
+    if (err.name === 'CastError') response = handleCastError(err);
+    else if (err.code === 11000) response = handleDuplicateKey(err);
+    else if (err.name === 'ValidationError') response = handleValidationError(err);
+    else if (err.name === 'JsonWebTokenError') response = handleJWTInvalid();
+    else if (err.name === 'TokenExpiredError') response = handleJWTExpired();
+    else if (err.name === 'MulterError') response = handleMulterError(err);
+    else if (!err.isOperational) {
+        if (process.env.NODE_ENV === 'production') {
+            response = {
+                statusCode: 500,
+                message: 'Something went wrong on our end. Please try again later.',
+            };
+        }
+    }
+    return sendError(res, response);
+};
+
+export {
+    globalErrorHandler,
+}
