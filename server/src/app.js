@@ -25,7 +25,6 @@ app.use(helmet({
 }));
 
 // cors 
-
 const allowedOrigins = [
     process.env.CLIENT_URL,
     'http://localhost:5173',
@@ -45,6 +44,17 @@ app.use(cors({
     allowedHeaders: ['Content-Type', 'Authorization'],
     maxAge:86400,
 }))
+
+// compression 
+app.use(compression({threshold: 1024}));
+
+// Body parser;
+app.use(express.json({ limit: '10kb' }));
+app.use(express.urlencoded({ extended: true, limit: '10kb' }));
+app.use(cookieParser()); // parse cookies → needed to read httpOnly refresh token
+
+
+
 dotenv.config({
     path: './.env'
 });
