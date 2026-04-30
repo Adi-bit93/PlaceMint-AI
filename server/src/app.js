@@ -53,6 +53,27 @@ app.use(express.json({ limit: '10kb' }));
 app.use(express.urlencoded({ extended: true, limit: '10kb' }));
 app.use(cookieParser()); // parse cookies → needed to read httpOnly refresh token
 
+// MongoDB Injection Sanitizer
+
+app.use(mongoSanitize({
+    replaceWith: '_',
+    onSanitize: ({ req, key }) => {
+        logger.warn(`NoSQL injection attempt blocked - key: ${key} | IP: ${req.ip}`);
+    }
+}));
+
+// HTTP Parameter Pollution Prevention.
+
+app.use(hpp({
+  whitelist: ['skills', 'branches', 'status', 'role'],
+}));
+
+// HTTP Request Logger
+if (process.env.NODE_ENV === 'development') {
+  app.use(morgan('dev'));
+} else {
+  app.use(morgan('combined', { stream: logger.stream }));
+}
 
 
 dotenv.config({
