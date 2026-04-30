@@ -1,4 +1,6 @@
 'use strict';
+import dotenv from 'dotenv'
+dotenv.config();
 import express from 'express';
 import cors from 'cors';
 import helmet from 'helmet';
@@ -6,6 +8,7 @@ import morgan from 'morgan';
 import compression from 'compression';
 import rateLimit from 'express-rate-limit';
 import mongoSanitize from 'express-mongo-sanitize';
+import cookieParser from 'cookie-parser'
 import hpp from 'hpp';
 import http from 'http';
 
@@ -79,7 +82,7 @@ if (process.env.NODE_ENV === 'development') {
 
 app.use('/api', rateLimit({
     windowMs: parseInt(process.env.RATE_LIMIT_WINDOW_MS) || 15 * 60 * 1000,
-    MAX: parseInt(process.env.RATE_LIMIT_MAX) || 100,
+    max: parseInt(process.env.RATE_LIMIT_MAX) || 100,
     standardHeaders: true, // adds RateLimit * headers so frontend knows limits
     legacyHeaders: false,
     message: {
@@ -102,10 +105,9 @@ app.get('/health', (req, res) => {
   });
 });
 
-
-dotenv.config({
-    path: './.env'
-});
+// dotenv.config({
+//     path: './.env'
+// });
 
 app.use(express.json());
 
@@ -114,7 +116,7 @@ app.get('/api/v1', (req, res) => {
   res.json({ success: true, message: 'Campus Placement Portal API v1 — running' });
 });
 
-app.all('*', (req, res, next) => {
+app.use((req, res, next) => {
   next(new AppError(`Route ${req.method} ${req.originalUrl} does not exist`, 404));
 });
 

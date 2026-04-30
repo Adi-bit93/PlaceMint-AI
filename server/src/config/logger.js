@@ -1,8 +1,12 @@
 import { createLogger, format, transports } from "winston";
-require("winston-daily-rotate-file");
+import "winston-daily-rotate-file";
+import { fileURLToPath } from "url";
 import path from "path";
 
 const { combine, timestamp, errors, json, colorize, printf } = format;
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
+
 
 // ─── Custom format for development console ────────────────────────────────────
 // Shows: 14:23:05 [error]: Something broke  ← clean and readable

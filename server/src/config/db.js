@@ -1,6 +1,6 @@
 
-const mongoose = require('mongoose');
-const logger = require('./logger');
+import mongoose from 'mongoose'
+import { logger } from './logger.js';
 
 // ─── Connection Options ───────────────────────────────────────────────────────
 const MONGO_OPTIONS = {
