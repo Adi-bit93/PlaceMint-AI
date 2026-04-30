@@ -1,9 +1,9 @@
-import { sendError } from "../utils/apiResponse";
-import { logger } from "../config/logger";
-import { error } from "winston";
+import { sendError } from "../utils/apiResponse.js";
+import { logger } from "../config/logger.js";
+import  error  from "winston";
 
 const handleCastError = (err) => ({
-    statusCode = 400,
+    statusCode : 400,
     message: `Invalid ${err.path}: "${err.value}"  is not a valid ID format`,
 });
 

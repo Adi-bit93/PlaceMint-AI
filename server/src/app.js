@@ -75,6 +75,33 @@ if (process.env.NODE_ENV === 'development') {
   app.use(morgan('combined', { stream: logger.stream }));
 }
 
+// Global Rate Limiter
+
+app.use('/api', rateLimit({
+    windowMs: parseInt(process.env.RATE_LIMIT_WINDOW_MS) || 15 * 60 * 1000,
+    MAX: parseInt(process.env.RATE_LIMIT_MAX) || 100,
+    standardHeaders: true, // adds RateLimit * headers so frontend knows limits
+    legacyHeaders: false,
+    message: {
+        success: false,
+        message: 'Too many requests from this IP. Please try gain after 15 minutes.'
+    },
+    handler: (req, res, next, options) => {
+        logger.warn(`Rate limit hit - IP:${req.ip} | URL: ${req.originalUrl}`);
+        res.status(options.statusCode).json(options.message);
+    },
+}));
+
+app.get('/health', (req, res) => {
+  res.status(200).json({
+    success:     true,
+    status:      'healthy',
+    environment: process.env.NODE_ENV,
+    uptime:      `${Math.floor(process.uptime())}s`,
+    timestamp:   new Date().toISOString(),
+  });
+});
+
 
 dotenv.config({
     path: './.env'
@@ -82,17 +109,80 @@ dotenv.config({
 
 app.use(express.json());
 
-
-app.get('/', (req, res) => {
-  res.send('server is running');
+// API Routes
+app.get('/api/v1', (req, res) => {
+  res.json({ success: true, message: 'Campus Placement Portal API v1 — running' });
 });
+
+app.all('*', (req, res, next) => {
+  next(new AppError(`Route ${req.method} ${req.originalUrl} does not exist`, 404));
+});
+
+app.use(globalErrorHandler);
+
+// server Startup
 
 const PORT = process.env.PORT ;
 
-console.log('PORT', PORT)
-app.listen(PORT, () => {
-    console.log(`Server is running on port ${PORT}`);
-})
+const startServer = async () => {
+  // Connect to DB first — don't accept requests before DB is ready
+  await connectDB();
+ 
+  server.listen(PORT, () => {
+    logger.info(`
+╔══════════════════════════════════════════╗
+║    Campus Placement Portal — Server      ║
+╠══════════════════════════════════════════╣
+║  Port    : ${String(PORT).padEnd(30)}║
+║  Env     : ${String(process.env.NODE_ENV || 'development').padEnd(30)}║
+║  Status  : Running                       ║
+╚══════════════════════════════════════════╝`);
+  });
+ 
+  // ─── Graceful Shutdown ─────────────────────────────────────────────────────
+  // When Render/Docker sends SIGTERM to stop the container:
+  // 1. Stop accepting NEW requests (server.close)
+  // 2. Let IN-FLIGHT requests finish
+  // 3. Close DB connections cleanly
+  // 4. Exit with code 0 (success)
+  //
+  // Without this: mid-query DB operations get cut off → data corruption risk
+  const shutdown = async (signal) => {
+    logger.info(`${signal} received — starting graceful shutdown...`);
+ 
+    server.close(async () => {
+      logger.info('HTTP server closed — no new requests accepted');
+      await disconnectDB();
+      logger.info('Graceful shutdown complete ✓');
+      process.exit(0);
+    });
+ 
+    // Safety net: force exit after 10s if shutdown hangs
+    setTimeout(() => {
+      logger.error('Forced shutdown after 10s timeout');
+      process.exit(1);
+    }, 10_000);
+  };
+ 
+  process.on('SIGTERM', () => shutdown('SIGTERM')); // Render/Docker stop
+  process.on('SIGINT',  () => shutdown('SIGINT'));  // Ctrl+C in terminal
+ 
+  // Catch async errors that slipped past asyncHandler
+  process.on('unhandledRejection', (reason) => {
+    logger.error(`UnhandledRejection: ${reason}`);
+    shutdown('unhandledRejection');
+  });
+ 
+  // Catch synchronous bugs (null dereference, etc.)
+  process.on('uncaughtException', (err) => {
+    logger.error(`UncaughtException: ${err.message}`, { stack: err.stack });
+    shutdown('uncaughtException');
+  });
+};
+ 
+startServer();
 
-
-export default app;
+export { 
+    app,
+    server
+} 
