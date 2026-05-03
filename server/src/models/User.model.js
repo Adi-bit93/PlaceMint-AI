@@ -116,3 +116,28 @@ const userSchema = new mongoose.Schema(
         }
     }
 )
+
+// Indexes
+userSchema.index({ role: 1, isActive: 1 });
+userSchema.index({ createdAt: -1 })
+
+// Virtual : isLocked
+
+userSchema.virtual('isLocked').get(function () {
+    return !!(this.lockUntil && this.lockUntil > Date.now());
+});
+
+// Pre-save Hook : Hash Password;
+
+userSchema.pre('save' , async function (next ) {
+    if(!this.isModified('password')) return next();
+
+    const rounds = parseInt(process.env.BCRYPT_SALT_ROUNDS) || 12;
+    this.password = await bcrypt.hash(this.password, rounds)
+
+    if(!this.isNew){
+        this.passwordChangedAt = new Date(Date.now() - 1000);
+    }
+
+    next();
+});
