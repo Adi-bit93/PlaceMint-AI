@@ -190,3 +190,36 @@ userSchema.methods.createEmailVerificationToken = function(){
 
     return rawToken;
 };
+
+// incrementLoginAttempts
+
+userSchema.methods.incrementLoginAttempts = async function() {
+    if(this.lockUntil && this.lockUntil < Date.now()){
+        return this.updateOne({
+            $set : {loginAttempts: 1 },
+            $unset: { lockUntil: 1 },
+        });
+    }
+
+    const update = { $inc: {loginAttempts: 1 }};
+
+    // lock after 5 attempts
+    if(this.loginAttempts + 1 >= 5 && !this.isLocked){
+        update.$set = { lockUntil: new Date(Date.now() + 30 * 60 * 1000) }; // 30 min lock 
+    }
+
+    return this.updateOne(update);
+}
+
+// resetLoginAttempts 
+userSchema.methods.resetLoginAttempts = function(){
+    return this.updateOne({
+        $set: { loginAttempts: 0, lastLogin: new Date()},
+        $unset: {lockUntil: 1},
+    });
+};
+
+const User = mongoose.model('User', userSchema);
+
+
+export default User;
