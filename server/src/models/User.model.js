@@ -158,3 +158,35 @@ userSchema.methods.generateAccessToken = function() {
 };
 
 // generateRefreshToken 
+userSchema.methods.generateRefreshToken = function () {
+    return jwt.sign(
+        {id:this._id},
+        process.env.JWT_REFRESH_SECRET,
+        { expiresIn: process.env.JWT_REFRESH_EXPIRES_IN || '30d'}
+    );
+};
+
+// createPasswordResetToken 
+userSchema.methods.createPasswordResetToken = function (){
+    const rawToken = crypto.randomBytes(32).toString('hex');
+
+    this.passwordResetToken = crypto
+        .createHash('sha256')
+        .update(rawToken)
+        .digest('hex');
+
+        this.passwordResetExpires = new Date(Date.now() + 10 * 60 * 1000); // 10 min
+
+        return rawToken;
+};
+
+userSchema.methods.createEmailVerificationToken = function(){
+    const rawToken = crypto
+        .createHash('sha256')
+        .update(rawToken)
+        .digest('hex')
+
+    this.emailVerificationExpires = new Date(Date.now() + 24 * 60 * 1000); // 24h
+
+    return rawToken;
+};
