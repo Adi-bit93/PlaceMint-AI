@@ -1,7 +1,7 @@
 import mongoose from 'mongoose';
 import bcrypt from 'bcryptjs';
 import jwt from 'jsonwebtoken';
-import crypto from 'crypto';
+import crypto, { generateKey } from 'crypto';
 import { kMaxLength } from 'buffer';
 import { type } from 'os';
 
@@ -143,6 +143,18 @@ userSchema.pre('save' , async function (next ) {
 });
 
 // Method : comparePassword.
-userSchema.method.comparePassword = async function(plaintext) {
+userSchema.methods.comparePassword = async function(plaintext) {
     return bcrypt.compare(password, this.password)
 };
+
+// generateAccessToken
+
+userSchema.methods.generateAccessToken = function() {
+    return jwt.sign(
+        {id: this._id, role: this.role, email: this.email},
+        process.env.JWT_SECRET,
+        { expiresIn: process.env.JWT_EXPIRES_IN || '15m'}
+    );
+};
+
+// generateRefreshToken 
