@@ -171,3 +171,26 @@ studentProfileSchema.index({ branch: 1, cgpa: -1 });
 studentProfileSchema.index({ placementStatus: 1, branch: 1 }); 
 studentProfileSchema.index({ skills: 1 });                    
 studentProfileSchema.index({ activeBacklogs: 1, cgpa: -1 });   
+
+studentProfileSchema.pre('save', function(next) {
+    let score = 0;
+
+    if(this.enrollmentNumber) score += 10;
+    if(this.cgpa > 0) score += 10;
+    if(this.branch) score += 10;
+
+    if(this.resume?.url) score += 20;
+
+    if(this.skills.length >=3 ) score += 30;
+    else if(this.skills.length >= 1) score += 10;
+
+    if(this.links.linkedin || this.links.github) score += 10;
+
+    this.profileCompleteness = Math.min(100, score);
+
+    next()
+})
+
+const StudentProfile = mongoose.model('StudentProfile', studentProfileSchema);
+
+export default StudentProfile;
