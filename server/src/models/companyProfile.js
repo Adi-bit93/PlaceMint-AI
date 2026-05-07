@@ -83,3 +83,11 @@ const companyProfileSchema = new mongoose.Schema(
         }
     }
 );
+
+// indexes 
+companyProfileSchema.index({companyName: 1 });
+companyProfileSchema.index({approvalStatus : 1, industry: 1 });
+
+const CompanyProfile = mongoose.model('CompanyProfile', companyProfileSchema);
+
+export default CompanyProfile;
