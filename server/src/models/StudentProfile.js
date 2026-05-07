@@ -58,14 +58,14 @@ const studentProfileSchema = new mongoose.Schema({
     // Academic Info
     enrollmentNumber: {
         type: String,
-        required: [true, 'Enrollment number is required' ],
+        required: [true, 'Enrollment number is required'],
         unique: true,
         trim: true,
         uppercase: true,
     },
-    branch:{
+    branch: {
         type: String,
-        required: [true, 'Branch is required' ], 
+        required: [true, 'Branch is required'],
         enum: {
             values: ['CE', 'IT', 'CSE', 'ENTC', 'MECH', 'CIVIL', 'EE', 'OTHER'],
             message: 'Invalid branch selected',
@@ -77,13 +77,13 @@ const studentProfileSchema = new mongoose.Schema({
         required: [true, 'Batch year is required'],
     },
 
-    cgpa:{
-        type:Number,
+    cgpa: {
+        type: Number,
         required: [true, 'CGPA is required'],
         min: [0, 'CGPA cannot be less than 0'],
         max: [10, 'CGPA cannot exceed 10']
     },
-    activeBacklogs:{
+    activeBacklogs: {
         type: Number,
         default: 0,
         min: [0, 'Active backlogs cannot be negative '],
@@ -103,39 +103,71 @@ const studentProfileSchema = new mongoose.Schema({
     },
 
     resume: {
-        url: {type: String, default: null},  // Cloudinary URL
-        publicId: {type: String, default: null },
-        uploadedAt: {type: Date, default:null },
+        url: { type: String, default: null },  // Cloudinary URL
+        publicId: { type: String, default: null },
+        uploadedAt: { type: Date, default: null },
 
-        parsedText :{type: String, default: null , select: false}, // raw extracted text(AI engine)
+        parsedText: { type: String, default: null, select: false }, // raw extracted text(AI engine)
     },
 
-    projects: {type: [projectSchema], default: []},
-    certifications: {type: [certificationSchema], defualt: []},
-    experiences: {type: [experienceSchema], default: []},
-    
+    projects: { type: [projectSchema], default: [] },
+    certifications: { type: [certificationSchema], defualt: [] },
+    experiences: { type: [experienceSchema], default: [] },
+
     // Social Links
     links: {
-        github: {type: String, default: null } ,
-        linkedin: {type: String, default: null}, 
+        github: { type: String, default: null },
+        linkedin: { type: String, default: null },
         portfolio: { type: String, default: null },
     },
 
     // placement status
 
     placementStatus: {
-        type: String, 
+        type: String,
         enum: ['not_placed', 'placed', 'opted_out'],
-        default: 'not_placed', 
+        default: 'not_placed',
         index: true,
     },
 
     placedAt: {
-        company: {type: String, default: null},
-        role: {type: String, default: null },
-        ctc: {type: Number, default:null },
-        offerDate: {type: Date, default: null },
+        company: { type: String, default: null },
+        role: { type: String, default: null },
+        ctc: { type: Number, default: null },
+        offerDate: { type: Date, default: null },
     },
-    
 
-})
+    // AI Shortlisting 
+    skillEmbedding: {
+        type: [Number],
+        default: null,
+        select: false, // large array → never return in list queries
+    },
+
+    // ── Profile Completeness
+    profileCompleteness: {
+        type: Number,
+        default: 0,
+        min: 0,
+        max: 100,
+    },
+},
+    {
+        timestamps: true,
+        toJSON: {
+            transform(doc, ret) {
+                delete ret.__v;
+                delete ret.skillEmbedding; // never expose embedding in API responses
+                return ret;
+            },
+        },
+    }
+);
+
+// ─── Indexes for admin filtering and AI hard-filter queries
+studentProfileSchema.index({ branch: 1, batch: 1 });          
+studentProfileSchema.index({ cgpa: -1 });                      
+studentProfileSchema.index({ branch: 1, cgpa: -1 });           
+studentProfileSchema.index({ placementStatus: 1, branch: 1 }); 
+studentProfileSchema.index({ skills: 1 });                    
+studentProfileSchema.index({ activeBacklogs: 1, cgpa: -1 });   
