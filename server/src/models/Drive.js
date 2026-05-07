@@ -163,4 +163,20 @@ const driveSchema = new mongoose.Schema({
             },
         },
     }
-)
+);
+
+// ─── Indexes 
+driveSchema.index({ status: 1, applicationDeadline: -1 });  
+driveSchema.index({ company: 1, status: 1 });                
+driveSchema.index({ 'eligibility.minCgpa': 1 });           
+driveSchema.index({ driveDate: -1 });                        
+driveSchema.index({ isDreamCompany: 1, status: 1 });        
+
+// Virtual: isApplicationOpen
+driveSchema.virtual('isApplicationOpen').get(function () {
+    return this.status === 'published' && this.applicationDeadline > new Date();
+});
+
+const Drive = mongoose.model('Drive', driveSchema);
+
+export default Drive;
