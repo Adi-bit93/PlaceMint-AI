@@ -38,7 +38,7 @@ const companyProfileSchema = new mongoose.Schema(
 
         companyType: {
             type: String,
-            enum:{
+            enum: {
                 values: ['Product', 'Service', 'Startup', 'PSU', 'MNC', 'Other'],
                 message: 'Invalid company type',
             },
@@ -49,8 +49,37 @@ const companyProfileSchema = new mongoose.Schema(
             type: String,
             trim: true,
             maxlength: [1000, 'Description cannot exceed 1000 characters'],
-            default:null,
+            default: null,
         },
-        
+        hrContact: {
+            name: { type: String, trim: true },
+            phone: { type: String, trim: true },
+            designation: { type: String, trim: true }
+        },
+
+        approvalStatus: {
+            type: String,
+            enum: ['pending', 'approved', 'rejected'],
+            default: 'pending',
+            index: true,
+        },
+
+        approvedBy: { type: mongoose.Schema.Types.ObjectId, ref: 'User', default: null },
+        approvedAt: { type: Date, default: null },
+        rejectionReason: { type: String, default: null },
+
+        // Hiring History 
+        totalHired: { type: Number, default: 0 },
+        averagePackage: { type: Number, default: 0 }, // in LPA
+        lastVisitedAt: { type: Date, default: null },
+    },
+    {
+        timestamps: true,
+        toJSON: {
+            transform(doc, ret) {
+                delete ret.__v;
+                return ret;
+            }
+        }
     }
-)
+);
