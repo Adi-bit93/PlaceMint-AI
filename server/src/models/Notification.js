@@ -49,3 +49,14 @@ const notificationSchema = new mongoose.Schema(
         },
     }
 );
+
+notificationSchema.index({ recipient: 1, isRead: 1, createdAt: -1 });
+notificationSchema.index({ recipient: 1, createdAt: -1 });
+notificationSchema.index(
+    { createdAt: 1 },
+    { expireAfterSeconds: 90 * 24 * 60 * 60 } // 90 days in seconds
+);
+
+const Notification = mongoose.model('Notification', notificationSchema);
+
+export default Notification;
