@@ -76,4 +76,16 @@ const applicationSchema = new mongoose.Schema(
             },
         },
     }
-)
+);
+
+// Unique Index
+applicationSchema.index({ student: 1, drive: 1} , { unique: true });
+
+applicationSchema.index({ drive: 1, status: 1 });              // HR views candidates by status
+applicationSchema.index({ drive: 1, 'aiScore.total': -1 });   // HR views ranked candidates
+applicationSchema.index({ student: 1, status: 1 });            // student views their applications
+applicationSchema.index({ status: 1, appliedAt: -1 });         // admin views recent applications
+
+const Application = mongoose.model('Application', applicationSchema);
+
+export default Application;
