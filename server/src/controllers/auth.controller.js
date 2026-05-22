@@ -134,5 +134,36 @@ export const logout = asyncHandler(async (req, res) => {
     return sendSuccess(res, { message: 'Logged out successfully. ' });
 });
 
+// refresh Token
+export const refreshToken = asyncHandler(async (req, res) => {
+    const token = req.cookies?.refreshToken;
 
+    if (!token) {
+        throw new AppError('No refresh token found. Please log in again.', 401);
+    }
+
+    let decoded;
+    try {
+        decoded = jwt.verify(token, process.env.JWT_REFRESH_SECRET);
+    } catch {
+        clearRefreshTokenCookie(res);
+        throw new AppError('Refresh token is invalid or expired. Please log in again.', 401);
+    }
+
+    const user = await User.findById(decoded.id);
+    if (!user || !user.isActive) {
+        clearRefreshTokenCookie(res);
+        throw new AppError('User not found. Please log in again.', 401);
+    }
+
+    // create new access token
+    const newAccessToken = user.generateAccessToken();
+
+    logger.debug(`Token refreshed: ${user.email}`);
+
+    return sendSuccess(res, {
+        message: 'Token refreshed.',
+        data: { accessToken: newAccessToken },
+    });
+});
 
