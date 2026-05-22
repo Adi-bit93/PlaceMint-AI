@@ -31,5 +31,52 @@ const clearRefreshTokenCookie = (res) => {
     });
 };
 
+// Register 
+
+export const register = asyncHandler(async (req, res) => {
+    const {name, email, password, role } = req.body;
+
+    const existing = await User.findOne({ email });
+    if(existing) {
+        throw new AppError('An account with this email already exists.', 409);
+    }
+
+    const user = await User.create({name, email, password, role });
+
+    const rawToken = user.createEmailVerificationToken();
+    await user.save({ validateBeforeSave: false });
+
+    const verifyUrl = `${process.env.CLIENT_URL}/verify-email/${rawToken}`;
+
+    try {
+        await sendVerificationEmail(user, verifyUrl);
+    } catch (emailErr) {
+        logger.error(`Verification email failed for ${user.email}: ${emailErr.message}`);
+    }
+
+    // token
+    const accessToken = user.generateAccessToken();
+    const refreshTOken = user.generateRefreshToken();
+
+    sendRefreshTokenCookie(res, refreshToken);
+
+    logger.info(`New ${role} registered: ${email}`);
+
+    return sendSuccess(res, {
+        statusCode: 201,
+        message : 'Account created successfully. Please check your email to verify your account.',
+        data: {
+            user: {
+                id: user._id,
+                name: user.name,
+                email: user.email,
+                role: user.role,
+                isEmailVerified: user.isEmailVerified,
+            },
+            accessToken
+        },
+    });
+});
+
 
 
