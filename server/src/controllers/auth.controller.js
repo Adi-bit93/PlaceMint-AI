@@ -299,3 +299,15 @@ export const updatePassword = asyncHandler(async (req, res) => {
   });
 });
 
+export const getMe = asyncHandler(async (req, res) => {
+  const user = await User.findById(req.user.id);
+ 
+  if (!user) {
+    throw new AppError('User not found.', 404);
+  }
+ 
+  return sendSuccess(res, {
+    message: 'User fetched successfully.',
+    data: { user },
+  });
+});
