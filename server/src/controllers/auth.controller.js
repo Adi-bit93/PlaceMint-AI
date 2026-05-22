@@ -226,3 +226,76 @@ export const forgotPassword = asyncHandler(async (req, res) => {
   logger.info(`Password reset requested: ${user.email}`);
   return sendSuccess(res, { message: genericMessage });
 });
+
+export const resetPassword = asyncHandler(async (req, res) => {
+  const hashedToken = crypto
+    .createHash('sha256')
+    .update(req.params.token)
+    .digest('hex');
+ 
+  const user = await User.findOne({
+    passwordResetToken:   hashedToken,
+    passwordResetExpires: { $gt: Date.now() },
+  }).select('+passwordResetToken +passwordResetExpires');
+ 
+  if (!user) {
+    throw new AppError('Password reset link is invalid or has expired.', 400);
+  }
+ 
+  user.password             = req.body.password;
+  user.passwordResetToken   = undefined;
+  user.passwordResetExpires = undefined;
+  await user.save();
+ 
+  // Send confirmation email
+  try {
+    await sendPasswordChangedEmail(user);
+  } catch (err) {
+    logger.error(`Password changed email failed: ${err.message}`);
+  }
+ 
+  const accessToken  = user.generateAccessToken();
+  const refreshToken = user.generateRefreshToken();
+  sendRefreshTokenCookie(res, refreshToken);
+ 
+  logger.info(`Password reset complete: ${user.email}`);
+ 
+  return sendSuccess(res, {
+    message: 'Password reset successful.',
+    data: { accessToken },
+  });
+});
+
+export const updatePassword = asyncHandler(async (req, res) => {
+  const { currentPassword, newPassword } = req.body;
+ 
+  const user = await User.findById(req.user.id).select('+password');
+ 
+  const isCorrect = await user.comparePassword(currentPassword);
+  if (!isCorrect) {
+    throw new AppError('Current password is incorrect.', 401);
+  }
+ 
+  user.password = newPassword; // pre-save hook hashes it
+  await user.save();
+ 
+ 
+  // Issue fresh tokens
+  const accessToken  = user.generateAccessToken();
+  const refreshToken = user.generateRefreshToken();
+  sendRefreshTokenCookie(res, refreshToken);
+ 
+  try {
+    await sendPasswordChangedEmail(user);
+  } catch (err) {
+    logger.error(`Password changed email failed: ${err.message}`);
+  }
+ 
+  logger.info(`Password updated: ${user.email}`);
+ 
+  return sendSuccess(res, {
+    message: 'Password updated successfully.',
+    data: { accessToken },
+  });
+});
+
