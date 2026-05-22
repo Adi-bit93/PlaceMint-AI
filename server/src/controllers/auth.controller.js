@@ -12,6 +12,7 @@ import {
 
 import logger from '../config/logger.js';
 import { http } from 'winston';
+import { send } from 'process';
 
 const sendRefreshTokenCookie = (res, refreshToken) => {
     res.cookie('refreshToken', refreshToken, {
@@ -125,7 +126,13 @@ export const login = asyncHandler(async (req, res) => {
             accessToken,
         },
     });
- })
+});
+
+export const logout = asyncHandler(async (req, res) => {
+    clearRefreshTokenCookie(res);
+    logger.info(`Logout: ${req.user?.email || 'unknown'}`);
+    return sendSuccess(res, { message: 'Logged out successfully. ' });
+});
 
 
 
