@@ -197,4 +197,32 @@ export const verifyEmail = asyncHandler(async (req, res) => {
     logger.info(`Email verified: ${user.email}`);
 
     return sendSuccess(res, { message: 'Email verified successfully. You can now log in.' });
-})
+});
+
+export const forgotPassword = asyncHandler(async (req, res) => {
+  const user = await User.findOne({ email: req.body.email });
+ 
+  const genericMessage = 'If an account with that email exists, a reset link has been sent.';
+ 
+  if (!user) {
+    return sendSuccess(res, { message: genericMessage });
+  }
+ 
+  const rawToken = user.createPasswordResetToken();
+  await user.save({ validateBeforeSave: false });
+ 
+  const resetUrl = `${process.env.CLIENT_URL}/reset-password/${rawToken}`;
+ 
+  try {
+    await sendPasswordResetEmail(user, resetUrl);
+  } catch (err) {
+    // If email fails → clear the reset token so user can try again
+    user.passwordResetToken   = undefined;
+    user.passwordResetExpires = undefined;
+    await user.save({ validateBeforeSave: false });
+    throw new AppError('Failed to send reset email. Please try again later.', 500);
+  }
+ 
+  logger.info(`Password reset requested: ${user.email}`);
+  return sendSuccess(res, { message: genericMessage });
+});
