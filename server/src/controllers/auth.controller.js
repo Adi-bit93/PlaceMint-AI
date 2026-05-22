@@ -167,3 +167,34 @@ export const refreshToken = asyncHandler(async (req, res) => {
     });
 });
 
+export const verifyEmail = asyncHandler(async (req, res) => {
+    const hashedToken = crypto
+        .createHash('sha256')
+        .update(req.params.token)
+        .digest('hex');
+
+    const user = await User.findOne({
+        emailVerificationToken: hashedToken,
+        emailVerificationExpires: { $gt: Date.now() }, // not expired
+    }).select('+emailVerificationToken +emailVerificationExpires');
+
+    if (!user) {
+        throw new AppError('Verification link is invalid or has expired.', 400);
+    }
+
+    user.isEmailVerified = true;
+    user.emailVerificationToken = undefined;
+    user.emailVerificationExpires = undefined;
+    await user.save({ validateBeforeSave: false });
+
+    // Send welcome email
+    try {
+        await sendWelcomeEmail(user);
+    } catch (err) {
+        logger.error(`Welcome email failed: ${err.message}`);
+    }
+
+    logger.info(`Email verified: ${user.email}`);
+
+    return sendSuccess(res, { message: 'Email verified successfully. You can now log in.' });
+})
