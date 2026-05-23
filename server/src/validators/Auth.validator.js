@@ -30,13 +30,13 @@ export const registerValidator = [
     body('role')
         .notEmpty()
         .withMessage('Role is required')
-        .isIn(['student', 'company'])
-        .withMessage('Role must be student or company'),
+        .isIn(['student', 'company', 'admin'])
+        .withMessage('Role must be student, company, or admin'),
 ];
 
 // Login
 
-const loginValidator = [
+export const loginValidator = [
     body('email')
         .trim()
         .notEmpty()

@@ -129,17 +129,14 @@ userSchema.virtual('isLocked').get(function () {
 
 // Pre-save Hook : Hash Password;
 
-userSchema.pre('save' , async function (next ) {
-    if(!this.isModified('password')) return next();
-
+userSchema.pre('save' , async function (){
+    if(!this.isModified('password')) return;
     const rounds = parseInt(process.env.BCRYPT_SALT_ROUNDS) || 12;
     this.password = await bcrypt.hash(this.password, rounds)
 
     if(!this.isNew){
         this.passwordChangedAt = new Date(Date.now() - 1000);
     }
-
-    next();
 });
 
 // Method : comparePassword.
@@ -181,7 +178,9 @@ userSchema.methods.createPasswordResetToken = function (){
 };
 
 userSchema.methods.createEmailVerificationToken = function(){
-    const rawToken = crypto
+    const rawToken = crypto.randomBytes(32).toString('hex');
+    
+    this.emailVerificationToken = crypto
         .createHash('sha256')
         .update(rawToken)
         .digest('hex')

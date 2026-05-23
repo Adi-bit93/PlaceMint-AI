@@ -1,5 +1,5 @@
 import nodemailer from 'nodemailer';
-import logger from '../utils/logger.js';
+import {logger} from '../config/logger.js';
 
 const createTransporter = () => {
     if (process.env.NODE_ENV === 'development') {
