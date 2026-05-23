@@ -10,8 +10,8 @@ import {
     sendPasswordChangedEmail
 } from '../services/email.services.js';
 
-import logger from '../config/logger.js';
-import { http } from 'winston';
+import {logger} from '../config/logger.js';
+import http  from 'winston';
 import { send } from 'process';
 
 const sendRefreshTokenCookie = (res, refreshToken) => {

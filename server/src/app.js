@@ -18,55 +18,80 @@ import { globalErrorHandler } from './middlewares/errorHandler.js';
 import { AppError } from './utils/apiResponse.js';
 
 
+import authRoutes from './routes/auth.routes.js';
+
 const app = express();
 const server = http.createServer(app);  // raw server - for socket.io
 
 app.set('trust proxy', 1);
 
 app.use(helmet({
-    crossOriginResourcePolicy: { policy : 'cross-origin'}, // security Headers allow cloudinary image URLs
+  crossOriginResourcePolicy: { policy: 'cross-origin' }, // security Headers allow cloudinary image URLs
 }));
 
 // cors 
 const allowedOrigins = [
-    process.env.CLIENT_URL,
-    'http://localhost:5173',
-    'http://localhost:3000',
+  process.env.CLIENT_URL,
+  'http://localhost:5173',
+  'http://localhost:3000',
 ].filter(Boolean);
 
 app.use(cors({
-    origin: (incomingOrigin, callback ) => {
-        if (!incomingOrigin || allowedOrigins.includes(incomingOrigin)) {
-            callback(null, true);
-        } else { 
-            callback(new Error(`CORS blocked : origin "${incomingOrigin}" not allowed`));
-        }
-    },
-    credentials: true,
-    methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
-    allowedHeaders: ['Content-Type', 'Authorization'],
-    maxAge:86400,
+  origin: (incomingOrigin, callback) => {
+    if (!incomingOrigin || allowedOrigins.includes(incomingOrigin)) {
+      callback(null, true);
+    } else {
+      callback(new Error(`CORS blocked : origin "${incomingOrigin}" not allowed`));
+    }
+  },
+  credentials: true,
+  methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
+  allowedHeaders: ['Content-Type', 'Authorization'],
+  maxAge: 86400,
 }))
 
 // compression 
-app.use(compression({threshold: 1024}));
+app.use(compression({ threshold: 1024 }));
 
 // Body parser;
 app.use(express.json({ limit: '10kb' }));
 app.use(express.urlencoded({ extended: true, limit: '10kb' }));
-app.use(cookieParser()); // parse cookies → needed to read httpOnly refresh token
+app.use(cookieParser());
 
 // MongoDB Injection Sanitizer
 
-app.use(mongoSanitize({
-    replaceWith: '_',
-    onSanitize: ({ req, key }) => {
-        logger.warn(`NoSQL injection attempt blocked - key: ${key} | IP: ${req.ip}`);
-    }
-}));
+// MongoDB NoSQL Injection Protection
+app.use((req, res, next) => {
+
+  // sanitize req.body
+  if (req.body) {
+    req.body = mongoSanitize.sanitize(req.body, {
+      replaceWith: '_',
+    });
+  }
+
+  // sanitize req.params
+  if (req.params) {
+    req.params = mongoSanitize.sanitize(req.params, {
+      replaceWith: '_',
+    });
+  }
+
+  // sanitize req.query safely
+  if (req.query) {
+    const sanitizedQuery = mongoSanitize.sanitize(req.query, {
+      replaceWith: '_',
+    });
+
+    // DO NOT overwrite req.query directly
+    Object.keys(req.query).forEach((key) => delete req.query[key]);
+    Object.assign(req.query, sanitizedQuery);
+  }
+
+  next();
+});
 
 // HTTP Parameter Pollution Prevention.
-
 app.use(hpp({
   whitelist: ['skills', 'branches', 'status', 'role'],
 }));
@@ -79,41 +104,41 @@ if (process.env.NODE_ENV === 'development') {
 }
 
 // Global Rate Limiter
-
 app.use('/api', rateLimit({
-    windowMs: parseInt(process.env.RATE_LIMIT_WINDOW_MS) || 15 * 60 * 1000,
-    max: parseInt(process.env.RATE_LIMIT_MAX) || 100,
-    standardHeaders: true, // adds RateLimit * headers so frontend knows limits
-    legacyHeaders: false,
-    message: {
-        success: false,
-        message: 'Too many requests from this IP. Please try gain after 15 minutes.'
-    },
-    handler: (req, res, next, options) => {
-        logger.warn(`Rate limit hit - IP:${req.ip} | URL: ${req.originalUrl}`);
-        res.status(options.statusCode).json(options.message);
-    },
+  windowMs: parseInt(process.env.RATE_LIMIT_WINDOW_MS) || 15 * 60 * 1000,
+  max: parseInt(process.env.RATE_LIMIT_MAX) || 100,
+  standardHeaders: true,
+  legacyHeaders: false,
+  message: {
+    success: false,
+    message: 'Too many requests from this IP. Please try gain after 15 minutes.'
+  },
+  handler: (req, res, next, options) => {
+    logger.warn(`Rate limit hit - IP:${req.ip} | URL: ${req.originalUrl}`);
+    res.status(options.statusCode).json(options.message);
+  },
 }));
 
 app.get('/health', (req, res) => {
   res.status(200).json({
-    success:     true,
-    status:      'healthy',
+    success: true,
+    status: 'healthy',
     environment: process.env.NODE_ENV,
-    uptime:      `${Math.floor(process.uptime())}s`,
-    timestamp:   new Date().toISOString(),
+    uptime: `${Math.floor(process.uptime())}s`,
+    timestamp: new Date().toISOString(),
   });
 });
 
-// dotenv.config({
-//     path: './.env'
-// });
 
 app.use(express.json());
-
+app.use('/api/v1/auth', authRoutes);
 // API Routes
 app.get('/api/v1', (req, res) => {
   res.json({ success: true, message: 'Campus Placement Portal API v1 — running' });
+});
+
+app.get('/favicon.ico', (req, res) => {
+  res.status(204).end();
 });
 
 app.use((req, res, next) => {
@@ -123,13 +148,11 @@ app.use((req, res, next) => {
 app.use(globalErrorHandler);
 
 // server Startup
-
-const PORT = process.env.PORT ;
+const PORT = process.env.PORT;
 
 const startServer = async () => {
-  // Connect to DB first — don't accept requests before DB is ready
   await connectDB();
- 
+
   server.listen(PORT, () => {
     logger.info(`
 ╔══════════════════════════════════════════╗
@@ -140,51 +163,43 @@ const startServer = async () => {
 ║  Status  : Running                       ║
 ╚══════════════════════════════════════════╝`);
   });
- 
-  // ─── Graceful Shutdown ─────────────────────────────────────────────────────
-  // When Render/Docker sends SIGTERM to stop the container:
-  // 1. Stop accepting NEW requests (server.close)
-  // 2. Let IN-FLIGHT requests finish
-  // 3. Close DB connections cleanly
-  // 4. Exit with code 0 (success)
-  //
-  // Without this: mid-query DB operations get cut off → data corruption risk
+
+  // Graceful Shutdown
+
   const shutdown = async (signal) => {
     logger.info(`${signal} received — starting graceful shutdown...`);
- 
+
     server.close(async () => {
       logger.info('HTTP server closed — no new requests accepted');
       await disconnectDB();
       logger.info('Graceful shutdown complete ✓');
       process.exit(0);
     });
- 
-    // Safety net: force exit after 10s if shutdown hangs
+
     setTimeout(() => {
       logger.error('Forced shutdown after 10s timeout');
       process.exit(1);
     }, 10_000);
   };
- 
-  process.on('SIGTERM', () => shutdown('SIGTERM')); // Render/Docker stop
-  process.on('SIGINT',  () => shutdown('SIGINT'));  // Ctrl+C in terminal
- 
-  // Catch async errors that slipped past asyncHandler
+
+  process.on('SIGTERM', () => shutdown('SIGTERM'));
+  process.on('SIGINT', () => shutdown('SIGINT'));
+
   process.on('unhandledRejection', (reason) => {
     logger.error(`UnhandledRejection: ${reason}`);
     shutdown('unhandledRejection');
   });
- 
-  // Catch synchronous bugs (null dereference, etc.)
+
+
   process.on('uncaughtException', (err) => {
     logger.error(`UncaughtException: ${err.message}`, { stack: err.stack });
     shutdown('uncaughtException');
   });
 };
- 
+
 startServer();
 
-export { 
-    app,
-    server
+export {
+  app,
+  server
 } 
