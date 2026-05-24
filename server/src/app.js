@@ -1,6 +1,6 @@
 'use strict';
 import dotenv from 'dotenv'
-dotenv.config();
+dotenv.config({ path: './.env' });
 import express from 'express';
 import cors from 'cors';
 import helmet from 'helmet';
@@ -131,8 +131,11 @@ app.get('/health', (req, res) => {
 
 
 app.use(express.json());
-app.use('/api/v1/auth', authRoutes);
+
 // API Routes
+app.use('/api/v1/auth', authRoutes);
+
+
 app.get('/api/v1', (req, res) => {
   res.json({ success: true, message: 'Campus Placement Portal API v1 — running' });
 });

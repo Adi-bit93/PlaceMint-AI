@@ -1,49 +1,50 @@
 import nodemailer from 'nodemailer';
-import {logger} from '../config/logger.js';
+import { logger } from '../config/logger.js';
 
 const createTransporter = () => {
-    if (process.env.NODE_ENV === 'development') {
-        return nodemailer.createTransport({
-            host: 'smtp.ethereal.email',
-            port: 587,
-            auth: {
-                user: process.env.SMTP_USER || 'ethereal_user',
-                pass: process.env.SMTP_PASS || 'ethereal_pass',
-            },
-        });
-    }
-
-    // Production SMTP (SendGrid / any provider)
-    return nodemailer.createTransport({
-        host: process.env.SMTP_HOST,
-        port: parseInt(process.env.SMTP_PORT) || 587,
-        secure: false, // TLS via STARTTLS on port 587
-        auth: {
-            user: process.env.SMTP_USER,
-            pass: process.env.SMTP_PASS,
-        },
-        pool: true,        // reuse connections → faster for bulk sends
-        maxConnections: 5, // max 5 simultaneous SMTP connections
-    });
+  // if (process.env.NODE_ENV === 'development') {
+  //     return nodemailer.createTransport({
+  //         host: 'smtp.ethereal.email',
+  //         port: 587,
+  //         auth: {
+  //             user: process.env.SMTP_USER || 'ethereal_user',
+  //             pass: process.env.SMTP_PASS || 'ethereal_pass',
+  //         },
+  //     });
+  // }
+  
+  // Production SMTP (SendGrid / any provider)
+  return nodemailer.createTransport({
+    host: process.env.SMTP_HOST || 'smtp.gmail.com',
+    port: parseInt(process.env.SMTP_PORT) || 587,
+    secure: false, // TLS via STARTTLS on port 587
+    auth: {
+      user: process.env.SMTP_USER || 'chavanaditya9325@gmail.com',
+      pass: process.env.SMTP_PASS || 'dhcszsnkmpkvikbs',
+    },
+    pool: true,        // reuse connections → faster for bulk sends
+    maxConnections: 5, // max 5 simultaneous SMTP connections
+  });
+  
 }
 
 const transporter = createTransporter();
 
 const sendEmail = async ({ to, subject, html }) => {
-    try {
-        const info = await transporter.sendMail({
-            from: `"${process.env.EMAIL_FROM_NAME || 'Campus Placement Cell'}" <${process.env.EMAIL_FROM || 'noreply@placement.com'}>`,
-            to,
-            subject,
-            html,
-        });
+  try {
+    const info = await transporter.sendMail({
+      from: `"${process.env.EMAIL_FROM_NAME || 'Campus Placement Cell'}" <${process.env.EMAIL_FROM || 'noreply@placement.com'}>`,
+      to,
+      subject,
+      html,
+    });
 
-        logger.info(`Email sent → to: ${to} | subject: "${subject}" | messageId: ${info.messageId}`);
-        return info;
-    } catch (error) {
-        logger.error(`Email send failed → to: ${to} | error: ${error.message}`);
-        throw error;
-    }
+    logger.info(`Email sent → to: ${to} | subject: "${subject}" | messageId: ${info.messageId}`);
+    return info;
+  } catch (error) {
+    logger.error(`Email send failed → to: ${to} | error: ${error.message}`);
+    throw error;
+  }
 };
 
 const baseTemplate = (content) => `
@@ -87,7 +88,7 @@ const baseTemplate = (content) => `
 // ─── Public Email Functions ───────────────────────────────────────────────────
 
 export const sendVerificationEmail = async (user, verifyUrl) => {
-    const html = baseTemplate(`
+  const html = baseTemplate(`
     <p>Hi <strong>${user.name}</strong>,</p>
     <p>Welcome to Campus Placement Portal! Please verify your email address to activate your account.</p>
     <a href="${verifyUrl}" class="btn">Verify Email Address</a>
@@ -98,16 +99,16 @@ export const sendVerificationEmail = async (user, verifyUrl) => {
     </div>
   `);
 
-    return sendEmail({
-        to: user.email,
-        subject: 'Verify Your Email — Campus Placement Portal',
-        html,
-    });
+  return sendEmail({
+    to: user.email,
+    subject: 'Verify Your Email — Campus Placement Portal',
+    html,
+  });
 };
 
 // 2. Password reset link
 export const sendPasswordResetEmail = async (user, resetUrl) => {
-    const html = baseTemplate(`
+  const html = baseTemplate(`
     <p>Hi <strong>${user.name}</strong>,</p>
     <p>We received a request to reset your password. Click the button below to set a new password.</p>
     <a href="${resetUrl}" class="btn">Reset Password</a>
@@ -117,18 +118,18 @@ export const sendPasswordResetEmail = async (user, resetUrl) => {
     </div>
   `);
 
-    return sendEmail({
-        to: user.email,
-        subject: 'Reset Your Password — Campus Placement Portal',
-        html,
-    });
+  return sendEmail({
+    to: user.email,
+    subject: 'Reset Your Password — Campus Placement Portal',
+    html,
+  });
 };
 
 // 3. Welcome email after email verification confirmed
 export const sendWelcomeEmail = async (user) => {
-    const dashboardUrl = `${process.env.CLIENT_URL}/${user.role}/dashboard`;
+  const dashboardUrl = `${process.env.CLIENT_URL}/${user.role}/dashboard`;
 
-    const html = baseTemplate(`
+  const html = baseTemplate(`
     <p>Hi <strong>${user.name}</strong>,</p>
     <p>Your email has been verified successfully! Your account is now active.</p>
     <a href="${dashboardUrl}" class="btn">Go to Dashboard</a>
@@ -146,16 +147,16 @@ export const sendWelcomeEmail = async (user) => {
     </ul>
   `);
 
-    return sendEmail({
-        to: user.email,
-        subject: `Welcome to Campus Placement Portal, ${user.name}!`,
-        html,
-    });
+  return sendEmail({
+    to: user.email,
+    subject: `Welcome to Campus Placement Portal, ${user.name}!`,
+    html,
+  });
 };
 
 // 4. Password changed confirmation
 export const sendPasswordChangedEmail = async (user) => {
-    const html = baseTemplate(`
+  const html = baseTemplate(`
     <p>Hi <strong>${user.name}</strong>,</p>
     <p>Your password was successfully changed.</p>
     <div class="highlight">
@@ -164,9 +165,9 @@ export const sendPasswordChangedEmail = async (user) => {
     </div>
   `);
 
-    return sendEmail({
-        to: user.email,
-        subject: 'Password Changed — Campus Placement Portal',
-        html,
-    });
+  return sendEmail({
+    to: user.email,
+    subject: 'Password Changed — Campus Placement Portal',
+    html,
+  });
 };

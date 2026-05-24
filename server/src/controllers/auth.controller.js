@@ -128,6 +128,7 @@ export const login = asyncHandler(async (req, res) => {
     });
 });
 
+
 export const logout = asyncHandler(async (req, res) => {
     clearRefreshTokenCookie(res);
     logger.info(`Logout: ${req.user?.email || 'unknown'}`);
@@ -178,6 +179,7 @@ export const verifyEmail = asyncHandler(async (req, res) => {
         emailVerificationExpires: { $gt: Date.now() }, // not expired
     }).select('+emailVerificationToken +emailVerificationExpires');
 
+
     if (!user) {
         throw new AppError('Verification link is invalid or has expired.', 400);
     }
@@ -190,6 +192,7 @@ export const verifyEmail = asyncHandler(async (req, res) => {
     // Send welcome email
     try {
         await sendWelcomeEmail(user);
+        console.log("Email Verification Token : ", user.emailVerificationToken);
     } catch (err) {
         logger.error(`Welcome email failed: ${err.message}`);
     }
