@@ -220,7 +220,7 @@ export const forgotPassword = asyncHandler(async (req, res) => {
     await sendPasswordResetEmail(user, resetUrl);
   } catch (err) {
     // If email fails → clear the reset token so user can try again
-    user.passwordResetToken   = undefined;
+    user.passwordResetToken = undefined;
     user.passwordResetExpires = undefined;
     await user.save({ validateBeforeSave: false });
     throw new AppError('Failed to send reset email. Please try again later.', 500);
@@ -245,8 +245,8 @@ export const resetPassword = asyncHandler(async (req, res) => {
     throw new AppError('Password reset link is invalid or has expired.', 400);
   }
  
-  user.password             = req.body.password;
-  user.passwordResetToken   = undefined;
+  user.password = req.body.password;
+  user.passwordResetToken = undefined;
   user.passwordResetExpires = undefined;
   await user.save();
  
