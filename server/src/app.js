@@ -1,6 +1,5 @@
 'use strict';
-import dotenv from 'dotenv'
-dotenv.config({ path: './.env' });
+import './config/env.js';
 import express from 'express';
 import cors from 'cors';
 import helmet from 'helmet';

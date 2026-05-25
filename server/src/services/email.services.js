@@ -1,3 +1,4 @@
+
 import nodemailer from 'nodemailer';
 import { logger } from '../config/logger.js';
 
@@ -12,15 +13,16 @@ const createTransporter = () => {
   //         },
   //     });
   // }
+
   
   // Production SMTP (SendGrid / any provider)
   return nodemailer.createTransport({
-    host: process.env.SMTP_HOST || 'smtp.gmail.com',
+    host: process.env.SMTP_HOST,
     port: parseInt(process.env.SMTP_PORT) || 587,
     secure: false, // TLS via STARTTLS on port 587
     auth: {
-      user: process.env.SMTP_USER || 'chavanaditya9325@gmail.com',
-      pass: process.env.SMTP_PASS || 'dhcszsnkmpkvikbs',
+      user: process.env.SMTP_USER ,
+      pass: process.env.SMTP_PASS,
     },
     pool: true,        // reuse connections → faster for bulk sends
     maxConnections: 5, // max 5 simultaneous SMTP connections
