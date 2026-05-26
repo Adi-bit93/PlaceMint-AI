@@ -12,7 +12,7 @@ cloudinary.config({
 
 // Resume storage
 
-const resumeStorage = new ClloudinaryStorage({
+const resumeStorage = new CloudinaryStorage({
     cloudinary,
     params: async (req, file) => ({
         folder: `campus-placement/resumes/${req.user.id}`,
@@ -38,3 +38,41 @@ const photoStorage = new CloudinaryStorage({
     }),
 
 });
+
+const pdfFilter = (req, file, cb) => {
+    if(file.mimetype === 'application/pdf'){
+        cb(null, true);
+    } else {
+        cb(new Error('Only PDF files are qllowed for resume upload'), false);
+    }
+};
+
+const imageFilter = (req, file, cb) => {
+    const allowed = ['image/jpeg', 'image/jpg', 'image/png', 'image/webp'];
+    if(allowed.includes(file.mimetype)){
+        cb(null, true);
+    } else {
+        cb(new Error('Only JPG, PNG, or WebP images are allowed for profile photo.'), false);
+    }
+};
+
+// Multer Instances
+
+export const uploadResume = multer({
+    storage: resumeStorage,
+    fileFilter: pdfFilter,
+    limits: {
+        fileSize: 5 * 1024 * 1024, // 5MB Limit
+        files: 1, // Only one file allowed
+    }
+});
+
+export const uploadPhoto = multer({
+    storage: photoStorage,
+    fileFilter: imageFilter,
+    limits: {
+        fileSize: 2 * 1024 * 1024, // 2MB
+        files: 1, // Only one file allowed
+    }
+
+})
