@@ -32,15 +32,15 @@ const photoStorage = new CloudinaryStorage({
         resource_type: 'image',
         public_id: `photo-${req.user.id}-${Date.now()}`,
         transformation: [
-            {width: 400, height: 400, crop: 'fill', gravity: 'face'},
-            {quality: 'auto', fetch_format: 'auto'},
+            { width: 400, height: 400, crop: 'fill', gravity: 'face' },
+            { quality: 'auto', fetch_format: 'auto' },
         ]
     }),
 
 });
 
 const pdfFilter = (req, file, cb) => {
-    if(file.mimetype === 'application/pdf'){
+    if (file.mimetype === 'application/pdf') {
         cb(null, true);
     } else {
         cb(new Error('Only PDF files are qllowed for resume upload'), false);
@@ -49,7 +49,7 @@ const pdfFilter = (req, file, cb) => {
 
 const imageFilter = (req, file, cb) => {
     const allowed = ['image/jpeg', 'image/jpg', 'image/png', 'image/webp'];
-    if(allowed.includes(file.mimetype)){
+    if (allowed.includes(file.mimetype)) {
         cb(null, true);
     } else {
         cb(new Error('Only JPG, PNG, or WebP images are allowed for profile photo.'), false);
@@ -76,3 +76,20 @@ export const uploadPhoto = multer({
     }
 
 })
+
+//Delete from cloudinary
+
+export const deleteFromCloudinary = async (publicId, resourceType = 'image') => {
+    try {
+        if (!publicId) return;
+        const result = await cloudinary.uploader.destroy(publicId,
+            { resource_type: resourceType, }
+        )
+        logger.info(`Cloudinary deleted: ${publicId} → result: ${result.result}`);
+        return result;
+    } catch(error) {
+        logger.error(`Cloudinary delete failed: ${publicId} → ${err.message}`);
+    }
+};
+
+export default cloudinary;
