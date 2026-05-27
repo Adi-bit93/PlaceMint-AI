@@ -1,3 +1,53 @@
+import { body, param } from 'express-validator';
+
+export const updateProfileValidator = [
+    body('enrollmentNumber')
+        .optional().trim().notEmpty().withMessage('Enrollment number cannot be empty').toUpperCase(),
+
+    body('branch')
+        .optional()
+        .isFloat({ min: 2000, max: 2100 }).withMessage('Batch must be a valid year').toInt(),
+
+    body('cgpa')
+        .optional()
+        .isFloat({ min: 0, max: 10 }).withMessage('CGPA must be between 0 and 10').isFloat(),
+
+    body('activeBacklogs')
+        .optional()
+        .isInt({ min: 0 }).withMessage('Active backlogs cannot be negative')
+        .toInt(),
+
+    body('totalBacklogs')
+        .optional()
+        .isInt({ min: 0 }).withMessage('Total backlogs cannot be negative')
+        .toInt(),
+
+    body('skills')
+        .optional.isArray().withMessage('Skills must be an array'),
+
+    body('skills.*')
+        .trim().notEmpty().withMessage('Skill cannot be empty')
+        .isLength({ max: 50 }).withMessage('Each skill max 50 characters'),
+
+    body('links.github')
+        .optional({ nullable: true }).trim()
+        .isURL().withMessage('GitHub must be a valid URL'),
+
+    body('links.linkedin')
+        .optional({ nullable: true }).trim()
+        .isURL().withMessage('LinkedIn must be a valid URL'),
+
+    body('links.portfolio')
+        .optional({ nullable: true }).trim()
+        .isURL().withMessage('Portfolio must be a valid URL'),
+
+]
+
+
+
+
+
+
 export const certificationValidator = (data) => [
     body('name')
         .trim().notEmpty().withMessage('Certification name is required')
