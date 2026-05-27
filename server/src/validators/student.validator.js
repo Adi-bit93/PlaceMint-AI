@@ -40,13 +40,31 @@ export const updateProfileValidator = [
     body('links.portfolio')
         .optional({ nullable: true }).trim()
         .isURL().withMessage('Portfolio must be a valid URL'),
+];
 
-]
+export const projectValidator = [
+    body('title')
+        .trim().notEmpty().withMessage('Project title is required')
+        .isLength({ max: 200 }).withMessage('Title max 200 characters'),
 
+    body('description')
+        .optional().trim()
+        .isLength({ max: 1000 }).withMessage('Description max 1000 characters'),
 
+    body('techStack')
+        .optional().isArray().withMessage('Tech stack must be an array'),
 
+    body('techStack.*')
+        .trim().notEmpty().withMessage('Tech stack item cannot be empty'),
 
+    body('liveUrl')
+        .optional({ nullable: true }).trim()
+        .isURL().withMessage('Live URL must be valid'),
 
+    body('githubUrl')
+        .optional({ nullable: true }).trim()
+        .isURL().withMessage('GitHub URL must be valid'),
+];
 
 export const certificationValidator = (data) => [
     body('name')
