@@ -5,6 +5,7 @@ import asyncHandler from '../utils/asyncHandler.js';
 import { AppError, sendSuccess, getPagination } from '../utils/apiResponse.js';
 import { deleFromCloudinary } from '../services/upload.service.js';
 import { logger } from '../config/logger.js';
+import { runInNewContext } from 'vm';
 
 
 export const getMyProfile = asyncHandler(async (req, res) => {
@@ -57,7 +58,6 @@ export const upsertMyProfile = asyncHandler(async (req, res) => {
 });
 
 // Upload resume
-
 export const uploadResume = asyncHandler(async (req, res) => {
     if (!req.file) {
         throw new AppError('No file uploaded. Please attach a pdf file.', 400);
@@ -91,4 +91,57 @@ export const uploadResume = asyncHandler(async (req, res) => {
             profileCompleteness: updatedProfile.profileCompleteness,
         },
     })
+});
+
+//Upload Profile Photo
+export const uploadProfilePhoto = asyncHandler(async (req, res) => {
+    if (!req.file) {
+        throw new AppError('No file uploaded. Please attach an image file.', 400);
+    }
+
+    const { default: User } = await import('../models/User.model.js');
+    const user = await User.findById(req.user.id);
+
+    if (user.profilePhoto?.publicId) {
+        await deleFromCloudinary(user.profilePhoto.publicId, 'image');
+    }
+
+    user.profilePhoto = {
+        url: req.file.path,
+        publicId: req.file.filename,
+    };
+
+    await user.save({ validateBeforeSave: false });
+
+    logger.info(`Photo uploaded: user ${req.user.id}`);
+
+    return sendSuccess(res, {
+        message: 'Profile photo uploaded successfully.',
+        data: { profilePhoto: user.profilePhoto },
+    });
+});
+
+// Add projects into the projects array
+export const addProject = asyncHandler(async (req, res) => {
+    const { title, description, techStack, liveUrl, githubUrl } = req.body;
+
+    const profile = await StudentProfile.findOneAndUpdate(
+        { user: req.user.id },
+        {
+            $push: {
+                projects: { title, description, techStack, liveUrl, githubUrl },
+            },
+        },
+        { new: true, upsert: true, setDefaultsOnInsert: true }
+    );
+
+    const newProject = profile.projects[profile.projects.length - 1];
+
+    logger.info(`Project added: student ${req.user.id} → "${title}"`);
+
+    return sendSuccess(res, {
+        statusCode: 201,
+        message: 'Project added successfully.',
+        data: { project: newProject, totalProjects: profile.projects.length },
+    });
 })
