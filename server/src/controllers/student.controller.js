@@ -178,7 +178,7 @@ export const updateProject = asyncHandler(async (req, res) => {
     });
 });
 
-// ─── 7. DELETE PROJECT ────────────────────────────────────────────────────────
+// DELETE PROJECT 
 // DELETE /api/v1/students/projects/:projectId
 export const deleteProject = asyncHandler(async (req, res) => {
     const { projectId } = req.params;
@@ -198,5 +198,46 @@ export const deleteProject = asyncHandler(async (req, res) => {
     return sendSuccess(res, {
         message: 'Project deleted successfully.',
         data: { totalProjects: profile.projects.length },
+    });
+});
+
+//ADD CERTIFICATION
+export const addCertification = asyncHandler(async (req, res) => {
+    const { name, issuer, issueDate, expiryDate, credentialUrl } = req.body;
+
+    const profile = await StudentProfile.findOneAndUpdate(
+        { user: req.user.id },
+        {
+            $push: {
+                certifications: { name, issuer, issueDate, expiryDate, credentialUrl },
+            },
+        },
+        { new: true, upsert: true, setDefaultsOnInsert: true }
+    );
+
+    const newCert = profile.certifications[profile.certifications.length - 1];
+
+    return sendSuccess(res, {
+        statusCode: 201,
+        message: 'Certification added successfully.',
+        data: { certification: newCert },
+    });
+});
+
+//DELETE CERTIFICATION
+export const deleteCertification = asyncHandler(async (req, res) => {
+    const { certId } = req.params;
+
+    const profile = await StudentProfile.findOneAndUpdate(
+        { user: req.user.id },
+        { $pull: { certifications: { _id: certId } } },
+        { new: true }
+    );
+
+    if (!profile) throw new AppError('Profile not found.', 404);
+
+    return sendSuccess(res, {
+        message: 'Certification deleted successfully.',
+        data: { totalCertifications: profile.certifications.length },
     });
 });
