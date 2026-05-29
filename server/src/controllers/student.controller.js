@@ -241,3 +241,52 @@ export const deleteCertification = asyncHandler(async (req, res) => {
         data: { totalCertifications: profile.certifications.length },
     });
 });
+
+// Get Eligible Drives
+export const getEligibleDrives = asyncHandler(async (req, res) => {
+    const profile = await StudentProfile.findOne({ user: req.user.id });
+
+    if (!profile) {
+        throw new AppError('Please complete your profile before viewing drives.', 400);
+    }
+
+    const now = new Date();
+    const eligibilityFilter = {
+        status: 'published',
+        applicationDeadline: { $gt: now },
+        'eligibility.minCgpa': { $lte: profile.cgpa },
+        'eligibility.maxActiveBacklogs': { $gte: profile.activeBacklogs },
+        $or: [
+            { 'eligibility.allowedBranches': { $size: 0 } },         // empty = all branches
+            { 'eligibility.allowedBranches': profile.branch },
+        ],
+    };
+
+    if (profile.batch) {
+        eligibilityFilter.$and = [
+            {
+                $or: [
+                    { 'eligibility.allowedBatches': { $size: 0 } },      // empty = all batches
+                    { 'eligibility.allowedBatches': profile.batch },
+                ],
+            },
+        ];
+    }
+    const { page, limit: _l } = req.query;
+    const totalCount = await Drive.countDocuments(eligibilityFilter);
+    const { skip, limit, meta } = getPagination(req.query, totalCount);
+
+    const drives = await Drive
+        .find(eligibilityFilter)
+        .populate('company', 'companyName industry companyType logo website')
+        .sort({ applicationDeadline: 1 }) // soonest deadline first
+        .skip(skip)
+        .limit(limit)
+        .select('-jobDescription -aiWeights -__v'); // exclude heavy fields from list view
+
+    return sendSuccess(res, {
+        message: 'Eligible drives fetched successfully.',
+        data: { drives },
+        meta,
+    });
+})
