@@ -395,3 +395,40 @@ export const applyToDrive = asyncHandler(async (req, res) => {
     });
 
 });
+
+export const getMyApplications = asyncHandler(async (req, res) => {
+    const profile = await StudentProfile.findOne({ user: req.user.id });
+
+    if (!profile) {
+        return sendSuccess(res, {
+            message: 'No applications yet.',
+            data: { applications: [] },
+        });
+    }
+
+    const { status } = req.query;
+    const filter = { student: profile._id };
+    if (status) filter.status = status;
+
+    const totalCount = await Application.countDocuments(filter);
+    const { skip, limit, meta } = getPagination(req.query, totalCount);
+
+    const applications = await Application
+        .find(filter)
+        .populate({
+            path: 'drive',
+            select: 'jobRole ctc jobLocation status applicationDeadline driveDate',
+            populate: {
+                path: 'company',
+                select: 'companyName logo industry',
+            }
+        }).sort({ appliedAt: -1 })
+        .skip(skip)
+        .limit(limit);
+
+    return sendSuccess(res, {
+        message: 'Application fetched successfully.',
+        data: { application },
+        meta,
+    });
+})
