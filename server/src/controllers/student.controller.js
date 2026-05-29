@@ -431,4 +431,56 @@ export const getMyApplications = asyncHandler(async (req, res) => {
         data: { application },
         meta,
     });
-})
+});
+
+// Application Detail
+export const getApplicationDetail = asyncHandler(async (req, res) => {
+    const profile = await StudentProfile.findOne({ user: req.user.id });
+    if (!profile) throw new AppError('Profile not found.', 404);
+
+    const application = await Application
+        .findOne({ _id: req.params.applicationId, student: profile._id })
+        .populate({
+            path: 'drive',
+            populate: { path: 'company', select: 'companyName logo industry companyType' },
+        });
+
+    if (!application) throw new AppError('Application not found.', 404);
+
+    return sendSuccess(res, {
+        message: 'Application detail fetched successfully.',
+        data: { application },
+    });
+});
+
+// Withdraw Application
+export const withdrawApplication = asyncHandler(async (req, res) => {
+    const profile = await StudentProfile.findOne({ user: req.user.id });
+    if (!profile) throw new AppError('Profile not found.', 404);
+
+    const application = await Application.findOne({
+        _id: req.params.applicationId,
+        student: profile._id,
+    });
+
+    if (!application) throw new AppError('Application not found.', 404);
+
+    if (application.status !== 'applied') {
+        throw new AppError(
+            `Cannot withdraw — your application is already ${application.status}. Please contact the placement office.`,
+            400
+        );
+    }
+
+    application.status = 'withdrew';
+    await application.save();
+
+    // Decrement drive counter
+    await Drive.findByIdAndUpdate(application.drive, {
+        $inc: { 'stats.totalApplied': -1 },
+    });
+
+    logger.info(`Application withdrawn: ${application._id}`);
+
+    return sendSuccess(res, { message: 'Application withdrawn successfully.' });
+});
