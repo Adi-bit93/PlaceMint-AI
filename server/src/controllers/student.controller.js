@@ -318,7 +318,6 @@ export const getDriveDetail = asyncHandler(async (req, res) => {
 });
 
 // Apply to drive
-
 export const applyToDrive = asyncHandler(async (req, res) => {
     const { driveId } = req.params;
 
@@ -395,4 +394,4 @@ export const applyToDrive = asyncHandler(async (req, res) => {
         data: { application },
     });
 
-})
+});
