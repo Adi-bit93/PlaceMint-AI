@@ -144,4 +144,59 @@ export const addProject = asyncHandler(async (req, res) => {
         message: 'Project added successfully.',
         data: { project: newProject, totalProjects: profile.projects.length },
     });
-})
+});
+
+// Update Project 
+//PATCH /api/v1/students/projects/:projectId
+export const updateProject = asyncHandler(async (req, res) => {
+    const { projectId } = req.params;
+    const { title, description, techStack, liveUrl, githubUrl } = req.body;
+
+
+    const updateFields = {};
+    if (title !== undefined) updateFields['projects.$.title'] = title;
+    if (description !== undefined) updateFields['projects.$.description'] = description;
+    if (techStack !== undefined) updateFields['projects.$.techStack'] = techStack;
+    if (liveUrl !== undefined) updateFields['projects.$.liveUrl'] = liveUrl;
+    if (githubUrl !== undefined) updateFields['projects.$.githubUrl'] = githubUrl;
+
+    const profile = await StudentProfile.findOneAndUpdate(
+        { user: req.user.id, 'projects._id': projectId },
+        { $set: updateFields },
+        { new: true, runValidators: true }
+    );
+
+    if (!profile) {
+        throw new AppError('Project not found.', 404);
+    }
+
+    const updated = profile.projects.find((p) => p._id.toString() === projectId);
+
+    return sendSuccess(res, {
+        message: 'Project updated successfully.',
+        data: { project: updated },
+    });
+});
+
+// ─── 7. DELETE PROJECT ────────────────────────────────────────────────────────
+// DELETE /api/v1/students/projects/:projectId
+export const deleteProject = asyncHandler(async (req, res) => {
+    const { projectId } = req.params;
+
+    const profile = await StudentProfile.findOneAndUpdate(
+        { user: req.user.id },
+        { $pull: { projects: { _id: projectId } } },
+        { new: true }
+    );
+
+    if (!profile) {
+        throw new AppError('Profile not found.', 404);
+    }
+
+    logger.info(`Project deleted: student ${req.user.id} → ${projectId}`);
+
+    return sendSuccess(res, {
+        message: 'Project deleted successfully.',
+        data: { totalProjects: profile.projects.length },
+    });
+});
