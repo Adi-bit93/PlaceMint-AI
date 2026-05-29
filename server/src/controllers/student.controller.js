@@ -290,3 +290,109 @@ export const getEligibleDrives = asyncHandler(async (req, res) => {
         meta,
     });
 })
+
+// Get Drive Detail
+export const getDriveDetail = asyncHandler(async (req, res) => {
+    const drive = await Drive
+        .findById(req.params.driveId)
+        .populate('company', 'companyName industry companyType logo website description hrContact');
+
+    if (!drive || drive.status === 'draft') {
+        throw new AppError('Drive not found.', 404);
+    }
+
+    // Check if student already applied to this drive
+    const existing = await Application.findOne({
+        drive: drive._id,
+        student: (await StudentProfile.findOne({ user: req.user.id }))?._id,
+    });
+
+    return sendSuccess(res, {
+        message: 'Drive fetched successfully.',
+        data: {
+            drive,
+            hasApplied: !!existing,
+            applicationStatus: existing?.status || null,
+        },
+    });
+});
+
+// Apply to drive
+
+export const applyToDrive = asyncHandler(async (req, res) => {
+    const { driveId } = req.params;
+
+    const profile = await StudentProfile.findOne({ user: req.user.id });
+    if (!profile) {
+        throw new AppError('Please complete your profile before applying.', 400);
+
+    }
+
+    if (profile.profileCompleteness < 60) {
+        throw new AppError(
+            `Your profile is only ${profile.profileCompleteness}% complete. Please complete at least 60% before applying.`,
+            400
+        );
+    }
+    if (!profile.resume?.url) {
+        throw new AppError('Please upload your resume before applying to drives.', 400);
+    }
+
+    const drive = await Drive.findById(driveId);
+    if (!drive) throw new AppError('Drive not found', 404);
+    if (drive.status !== 'published') throw new AppError('This drive is not open for applications.', 400);
+    if (drive.applicationDeadline < new Date()) throw new AppError('Application deadline has passed', 400);
+
+    if (profile.cgpa < drive.eligibility.minCgpa) {
+        throw new AppError(
+            `Your CGPA (${profile.cgpa}) does not meet the minimum requirement (${drive.eligibility.minCgpa}).`,
+            400
+        );
+    }
+
+    if (profile.activeBacklogs > drive.eligibility.maxActiveBacklogs) {
+        throw new AppError(
+            `You have ${profile.activeBacklogs} active backlog(s). This drive allows maximum ${drive.eligibility.maxActiveBacklogs}.`,
+            400
+        );
+    }
+
+    if (
+        drive.eligibility.allowedBranches.length > 0 &&
+        !drive.eligibility.allowedBranches.includes(profile.branch)
+    ) {
+        throw new AppError(`Your branch (${profile.branch}) is not eligible for this drive.`, 400);
+    }
+
+    // one student one job policy
+    if (profile.placementStatus === 'placed' && !drive.isDreamCompany) {
+        throw new AppError(
+            'You are already placed. You can only apply to Dream Companies now.',
+            400
+        );
+    }
+
+    // check Duplicate application
+    const existing = await Application.findOne({ student: profile._id, drive: driveId });
+    if (existing) {
+        throw new AppError('You have already applied to this drive.', 409);
+    }
+
+    // Create application
+    const application = await Application.create({
+        student: profile._id,
+        drive: driveId,
+        status: 'applied',
+    });
+
+    await Drive.findByIdAndUpdate(driveId, { $inc: { 'stats.totalApplied': 1 } });
+
+    logger.info(`Application created: student ${profile._id} → drive ${driveId}`);
+
+    return sendSuccess(res, {
+        statusCode: 201,
+        message: 'Application submitted successfully!',
+        data: { application },
+    });
+
+})
