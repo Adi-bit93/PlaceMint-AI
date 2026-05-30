@@ -169,3 +169,21 @@ export const updateDriveValidator = [
         .isFloat({ min: 0, max: 10 }).withMessage('Min CGPA must be 0-10')
         .toFloat(),
 ];
+
+// MongoDB ObjectId param validator
+export const objectIdValidator = (param) => [
+    param(paramName).isMongoId().withMessage(`Invalid ${paramName} format`)
+];
+
+// Candidate list query filter
+export const candidateQueryValidator = [
+    query('status')
+        .optional()
+        .isIn(['applied', 'shortlisted', 'in_process', 'selected', 'rejected'])
+        .withMessage('Invalid status filter'),
+
+    query('minScore')
+        .optional()
+        .isFloat({ min: 0, max: 100 }).withMessage('minScore must be 0-100')
+        .toFloat(),
+];
