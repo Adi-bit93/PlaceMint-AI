@@ -137,3 +137,35 @@ export const createDriveValidator = [
         .toInt(),
 ];
 
+// update Drive 
+export const updateDriveValidator = [
+    body('jobRole')
+        .optional()
+        .trim()
+        .notEmpty().withMessage('Job role cannot be empty')
+        .isLength({ max: 200 }),
+
+    body('jobDescription')
+        .optional()
+        .trim()
+        .isLength({ min: 50, max: 5000 }).withMessage('Job description must be 50-5000 characters'),
+
+    body('ctc')
+        .optional()
+        .isFloat({ min: 0 }).withMessage('CTC must be positive')
+        .toFloat(),
+
+    body('applicationDeadline')
+        .optional()
+        .isISO8601().withMessage('Must be a valid date')
+        .toDate()
+        .custom((value) => {
+            if (value <= new Date()) throw new Error('Deadline must be in the future');
+            return true;
+        }),
+
+    body('eligibility.minCgpa')
+        .optional()
+        .isFloat({ min: 0, max: 10 }).withMessage('Min CGPA must be 0-10')
+        .toFloat(),
+];
