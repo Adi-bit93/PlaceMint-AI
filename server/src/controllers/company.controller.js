@@ -197,3 +197,44 @@ export const createDrive = asyncHandler(async (req, res) => {
         data: { drive },
     });
 })
+export const updateDrive = asyncHandler(async (req, res) => {
+    const company = await getCompanyOrFail(req.user.id);
+
+    const drive = await Drive.findOne({
+        _id: req.params.driveId,
+        company: company._id,
+    });
+
+    if (!drive) throw new AppError('Drive not found.', 404);
+
+    if (drive.status !== 'draft') {
+        throw new AppError(
+            `Drive cannot be edited in "${drive.status}" status. Contact admin for changes.`, 400
+        )
+    }
+
+    const allowedFields = [
+        'jobRole', 'jobDescription', 'ctc', 'ctcBreakdown',
+        'jobLocation', 'bond', 'eligibility', 'rounds',
+        'applicationDeadline', 'driveDate',
+    ];
+
+    // Only update fields that were actually sent in the request body
+    const updates = {};
+    allowedFields.forEach((field) => {
+        if (req.body[field] !== undefined) updates[field] = req.body[field];
+    });
+
+    const updated = await Drive.findByIdAndUpdate(
+        drive._id,
+        { $set: updates },
+        { new: true, runValidators: true }
+    );
+
+    logger.info(`Drive updated: ${drive._id}`);
+
+    return sendSuccess(res, {
+        message: 'Drive updated successfully.',
+        data: { drive: updated },
+    });
+})
