@@ -143,3 +143,57 @@ export const getMyDrives = asyncHandler(async (req, res) => {
         meta,
     });
 });
+
+// get single drive 
+export const getDrive = asyncHandler(async (req, res) => {
+    const company = await getCompanyOrFail(req.user.id);
+
+    const drive = await Drive.findOne({
+        _id: req.params.driveId,
+        company: company._id, // scoped to this company only 
+    });
+    if (!drive) throw new AppError('Drive not found.', 404);
+
+    return sendSuccess(res, {
+        message: 'Drive fetched successfully.',
+        data: { drive },
+    });
+
+});
+
+export const createDrive = asyncHandler(async (req, res) => {
+    const company = await getCompanyOrFail(req.user.id);
+
+    if (company.approvalStatus !== 'approved') {
+        throw new AppError('Your company must be approved before posting drives.', 403);
+    }
+
+    const {
+        jobRole, jobDescription, ctc, ctcBreakdown, jobLocation,
+        bond, eligibility, rounds, applicationDeadline, driveDate,
+    } = req.body;
+
+    const drive = await Drive.create({
+        company: company._id,
+        createdBy: req.user.id,
+        jobRole,
+        jobDescription,
+        ctc,
+        ctcBreakdown,
+        jobLocation,
+        bond,
+        eligibility,
+        rounds: rounds || [],
+        applicationDeadline,
+        driveDate,
+        status: 'draft', // always starts as draft — admin publishes
+    });
+
+    logger.info(`Drive created: ${drive._id} by company ${company._id}`);
+
+    return sendSuccess(res, {
+        statusCode: 201,
+        message: 'Drive created successfully. Submit to admin for review.',
+        data: { drive },
+    });
+})
