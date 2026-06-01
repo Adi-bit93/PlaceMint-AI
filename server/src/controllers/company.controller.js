@@ -335,3 +335,68 @@ export const getCandidateDetail = asyncHandler(async (req, res) => {
         data: { application },
     });
 })
+
+// Shortlist Candidate
+export const ShortlistCandidate = asyncHandler(async (req, res) => {
+    const company = await getCompanyOrFail(req.user.id);
+
+    const drive = await Drive.findOne({ _id: req.params.driveId, company: company._id });
+    if (!drive) throw new AppError('Drive not found.', 404);
+
+    const application = await Application.findOne({
+        _id: req.params.applicationId,
+        drive: drive._id,
+    });
+
+    if (!application) throw new AppError('Application not found.', 404);
+
+    if (!['applied', 'shortlisted'].includes(application.status)) {
+        throw new AppError(`Cannot shortlist — candidate is already ${application.status}.`, 400);
+    }
+
+    application.status = 'shortlisted';
+    application.shortlistedAt = new Date();
+    await application.save();
+
+    // Update drive shortlist count
+    await Drive.findByIdAndUpdate(drive._id, {
+        $inc: { 'stats.totalShortlisted': 1 },
+    });
+
+    logger.info(`Shortlisted: application ${application._id} by company ${company._id}`);
+
+    return sendSuccess(res, {
+        message: 'Candidate shortlisted successfully.',
+        data: { applicationId: application._id, status: application.status },
+    });
+});
+
+//REJECT CANDIDATE
+export const rejectCandidate = asyncHandler(async (req, res) => {
+    const company = await getCompanyOrFail(req.user.id);
+
+    const drive = await Drive.findOne({ _id: req.params.driveId, company: company._id });
+    if (!drive) throw new AppError('Drive not found.', 404);
+
+    const application = await Application.findOne({
+        _id: req.params.applicationId,
+        drive: drive._id,
+    });
+
+    if (!application) throw new AppError('Application not found.', 404);
+
+    if (['selected', 'rejected', 'withdrew'].includes(application.status)) {
+        throw new AppError(`Candidate is already ${application.status}.`, 400);
+    }
+
+    application.status = 'rejected';
+    application.rejectedAt = new Date();
+    await application.save();
+
+    logger.info(`Rejected: application ${application._id} by company ${company._id}`);
+
+    return sendSuccess(res, {
+        message: 'Candidate rejected.',
+        data: { applicationId: application._id, status: application.status },
+    });
+});
