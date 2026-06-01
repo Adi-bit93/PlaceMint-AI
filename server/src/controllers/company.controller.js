@@ -113,7 +113,6 @@ export const uploadLogo = asyncHandler(async (req, res) => {
 // DRIVES
 
 // GET My Drives
-
 export const getMyDrives = asyncHandler(async (req, res) => {
     const company = await getCompanyOrFail(req.user.id);
 
@@ -197,6 +196,7 @@ export const createDrive = asyncHandler(async (req, res) => {
         data: { drive },
     });
 })
+
 export const updateDrive = asyncHandler(async (req, res) => {
     const company = await getCompanyOrFail(req.user.id);
 
@@ -238,3 +238,34 @@ export const updateDrive = asyncHandler(async (req, res) => {
         data: { drive: updated },
     });
 })
+
+// Submit drive for review
+
+export const submitDriveForReview = asyncHandler(async (req, res) => {
+    const company = await getCompanyOrFail(req.user.id);
+
+    const drive = await Drive.findOne({
+        _id: req.params.driveId,
+        company: company._id,
+    });
+
+    if (!drive) throw new AppError('Drive not found.', 404);
+
+    if (drive.status !== 'draft') {
+        throw new AppError('Only draft drives can be submitted for review.', 400);
+    }
+
+    if (!drive.rounds || drive.rounds.length === 0) {
+        throw new AppError('Please add at least one interview round before submitting.', 400);
+    }
+
+    drive.status = 'pending_review';
+
+    logger.info(`Drive ${drive._id} submitted for review by company ${company._id}`);
+
+    return sendSuccess(res, {
+        message: 'Drive submitted for admin review. You will be notified once published.',
+        data: { driveId: drive._id, status: drive.status },
+    });
+})
+
