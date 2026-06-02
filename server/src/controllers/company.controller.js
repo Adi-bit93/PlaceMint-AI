@@ -462,3 +462,59 @@ export const updateRoundResult = asyncHandler(async (req, res) => {
         },
     });
 })
+
+export const selectCandidate = asyncHandler(async (req, res) => {
+    const { ctc, role, location, offerDate, joiningDate } = req.body;
+
+    const company = await getCompanyOrFail(req.user.id);
+    const drive = await Drive.findOne({ _id: req.params.driveId, company: company._id });
+    if (!drive) throw new AppError('Drive not found.', 404);
+    const application = await Application.findOne({
+        _id: req.params.applicationId,
+        drive: drive._id,
+    });
+
+    if (!application) throw new AppError('Application not found.', 404);
+
+    if (application.status === 'selected') {
+        throw new AppError('Candidate is already selected.', 400);
+    }
+
+    application.status = 'selected';
+    application.selectedAt = new Date();
+    application.offer = {
+        ctc: ctc || drive.ctc,
+        role: role || drive.jobRole,
+        location: location || drive.jobLocation,
+        offerDate: offerDate ? new Date(offerDate) : new Date(),
+        joiningDate: joiningDate ? new Date(joiningDate) : null,
+    };
+    await application.save();
+
+    // Update drive selected count
+    await Drive.findByIdAndUpdate(drive._id, {
+        $inc: { 'stats.totalSelected': 1 },
+    });
+
+    // Update student placement status to 'placed'
+    const StudentProfile = (await import('../models/StudentProfile.js')).default;
+    await StudentProfile.findByIdAndUpdate(application.student, {
+        $set: {
+            placementStatus: 'placed',
+            'placedAt.company': company.companyName,
+            'placedAt.role': application.offer.role,
+            'placedAt.ctc': application.offer.ctc,
+            'placedAt.offerDate': application.offer.offerDate,
+        },
+    });
+
+    logger.info(`Candidate selected: application ${application._id} → placed`);
+
+    return sendSuccess(res, {
+        message: 'Candidate selected and marked as placed.',
+        data: {
+            applicationId: application._id,
+            offer: application.offer,
+        },
+    });
+})
