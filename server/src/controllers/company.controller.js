@@ -518,3 +518,37 @@ export const selectCandidate = asyncHandler(async (req, res) => {
         },
     });
 })
+
+// Drive stats 
+// Quick stats for company dashboard: applied, shortlisted, selected counts
+export const getDriveStats = asyncHandler(async (req, res) => {
+    const company = await getCompanyOrFail(req.user.id);
+
+    const drive = await Drive.findOne({
+        _id: req.params.driveId,
+        company: company._id,
+    }).select('stats jobRole status applicationDeadline');
+
+    if (!drive) throw new AppError('Drive not found.', 404);
+
+    // Get status-wise breakdown from Application collection
+    const breakdown = await Application.aggregate([
+        { $match: { drive: drive._id } },
+        { $group: { _id: '$status', count: { $sum: 1 } } },
+    ]);
+
+    const statusMap = {};
+    breakdown.forEach(({ _id, count }) => { statusMap[_id] = count; });
+
+    return sendSuccess(res, {
+        message: 'Drive stats fetched successfully.',
+        data: {
+            driveId: drive._id,
+            jobRole: drive.jobRole,
+            status: drive.status,
+            deadline: drive.applicationDeadline,
+            stats: drive.stats,
+            breakdown: statusMap,
+        },
+    });
+});
