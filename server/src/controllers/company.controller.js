@@ -400,3 +400,65 @@ export const rejectCandidate = asyncHandler(async (req, res) => {
         data: { applicationId: application._id, status: application.status },
     });
 });
+
+// Update round result 
+export const updateRoundResult = asyncHandler(async (req, res) => {
+    const { roundName, roundOrder, result, remarks } = req.body;
+
+    if (!roundName || !roundOrder || !result) {
+        throw new AppError('roundName, roundOrder, and result are required.', 400);
+    }
+
+    if (!['cleared', 'eliminated', 'absent'].includes(result)) {
+        throw new AppError('Result must be cleared, eliminated, or absent.', 400);
+    }
+
+    const company = await getCompanyOrFail(req.user.id);
+    const drive = await Drive.findOne({ _id: req.params.driveId, company: company._id });
+    if (!drive) throw new AppError('Drive not found.', 404);
+
+    const application = await Application.findOne({
+        _id: req.params.applicationId,
+        drive: drive._id,
+    });
+    if (!application) throw new AppError('Application not found.', 404);
+
+    const existingRoundIdx = application.roundResults.findIndex(
+        (r) => r.roundOrder === roundOrder
+    );
+
+    if (existingRoundIdx !== -1) {
+        // Update existing round result
+        application.roundResults[existingRoundIdx].result = result;
+        application.roundResults[existingRoundIdx].remarks = remarks;
+        application.roundResults[existingRoundIdx].updatedAt = new Date();
+    } else {
+        // Add new round result
+        application.roundResults.push({
+            roundName, roundOrder, result, remarks,
+        });
+    }
+
+    // Update application status based on result
+    if (result === 'eliminated' || result === 'absent') {
+        application.status = 'rejected';
+        application.rejectedAt = new Date();
+    } else if (result === 'cleared') {
+        application.status = 'in_process';
+        application.currentRound = roundOrder;
+    }
+
+    await application.save();
+
+    logger.info(`Round result updated: application ${application._id} round ${roundOrder} → ${result}`);
+
+    return sendSuccess(res, {
+        message: 'Round result updated successfully.',
+        data: {
+            applicationId: application._id,
+            roundOrder,
+            result,
+            applicationStatus: application.status,
+        },
+    });
+})
