@@ -18,6 +18,8 @@ import { AppError } from './utils/apiResponse.js';
 
 
 import authRoutes from './routes/auth.routes.js';
+import studentRoutes from './routes/student.routes.js';
+import companyRoutes from './routes/company.routes.js';
 
 const app = express();
 const server = http.createServer(app);  // raw server - for socket.io
@@ -131,8 +133,6 @@ app.get('/health', (req, res) => {
 
 app.use(express.json());
 
-// API Routes
-app.use('/api/v1/auth', authRoutes);
 
 
 app.get('/api/v1', (req, res) => {
@@ -142,6 +142,11 @@ app.get('/api/v1', (req, res) => {
 app.get('/favicon.ico', (req, res) => {
   res.status(204).end();
 });
+
+// API Routes
+app.use('/api/v1/auth', authRoutes);
+app.use('/api/v1/student', studentRoutes);
+app.use('/api/v1/companies', companyRoutes);
 
 app.use((req, res, next) => {
   next(new AppError(`Route ${req.method} ${req.originalUrl} does not exist`, 404));
