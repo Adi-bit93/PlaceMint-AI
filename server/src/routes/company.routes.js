@@ -34,11 +34,11 @@ router.post(
 router
     .route('/drives')
     .get(companyController.getMyDrives)
-post(
-    createDriveValidator,
-    validate,
-    companyController.createDrive
-);
+    .post(
+        createDriveValidator,
+        validate,
+        companyController.createDrive
+    );
 
 router
     .route('/drives/:driveId')
@@ -60,7 +60,7 @@ router.patch(
     companyController.submitDriveForReview
 );
 
-Router.get(
+router.get(
     '/drives/:driveId/stats',
     objectIdValidator('driveId'),
     validate,

@@ -171,7 +171,7 @@ export const updateDriveValidator = [
 ];
 
 // MongoDB ObjectId param validator
-export const objectIdValidator = (param) => [
+export const objectIdValidator = (paramName) => [
     param(paramName).isMongoId().withMessage(`Invalid ${paramName} format`)
 ];
 

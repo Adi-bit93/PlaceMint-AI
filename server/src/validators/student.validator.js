@@ -23,7 +23,7 @@ export const updateProfileValidator = [
         .toInt(),
 
     body('skills')
-        .optional.isArray().withMessage('Skills must be an array'),
+        .optional().isArray().withMessage('Skills must be an array'),
 
     body('skills.*')
         .trim().notEmpty().withMessage('Skill cannot be empty')

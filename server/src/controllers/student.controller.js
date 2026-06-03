@@ -1,9 +1,9 @@
 import StudentProfile from '../models/StudentProfile.js';
 import Drive from '../models/Drive.js';
 import Application from '../models/Application.js';
-import asyncHandler from '../utils/asyncHandler.js';
+import {asyncHandler} from '../utils/asyncHandler.js';
 import { AppError, sendSuccess, getPagination } from '../utils/apiResponse.js';
-import { deleFromCloudinary } from '../services/upload.service.js';
+import { deleteFromCloudinary } from '../services/upload.service.js';
 import { logger } from '../config/logger.js';
 import { runInNewContext } from 'vm';
 
@@ -68,7 +68,7 @@ export const uploadResume = asyncHandler(async (req, res) => {
 
     // Delete old file before saving the new one 
     if (profile?.resume?.publicId) {
-        await deleFromCloudinary(profile.resume.publicId, 'raw');
+        await deleteFromCloudinary(profile.resume.publicId, 'raw');
     }
 
     const updatedProfile = await StudentProfile.findOneAndUpdate(
@@ -103,7 +103,7 @@ export const uploadProfilePhoto = asyncHandler(async (req, res) => {
     const user = await User.findById(req.user.id);
 
     if (user.profilePhoto?.publicId) {
-        await deleFromCloudinary(user.profilePhoto.publicId, 'image');
+        await deleteFromCloudinary(user.profilePhoto.publicId, 'image');
     }
 
     user.profilePhoto = {

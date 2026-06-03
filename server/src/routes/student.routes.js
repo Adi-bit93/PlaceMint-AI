@@ -76,7 +76,7 @@ router.route('application')
     .get(studentController.getMyApplications);
 
 router
-    route('/applications/:applicationId')
+    .route('/applications/:applicationId')
     .get(studentController.getApplicationDetail)
     .delete(studentController.withdrawApplication);
 

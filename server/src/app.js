@@ -130,10 +130,7 @@ app.get('/health', (req, res) => {
   });
 });
 
-
 app.use(express.json());
-
-
 
 app.get('/api/v1', (req, res) => {
   res.json({ success: true, message: 'Campus Placement Portal API v1 — running' });
@@ -147,6 +144,7 @@ app.get('/favicon.ico', (req, res) => {
 app.use('/api/v1/auth', authRoutes);
 app.use('/api/v1/student', studentRoutes);
 app.use('/api/v1/companies', companyRoutes);
+
 
 app.use((req, res, next) => {
   next(new AppError(`Route ${req.method} ${req.originalUrl} does not exist`, 404));
