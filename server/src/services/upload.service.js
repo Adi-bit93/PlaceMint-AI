@@ -43,7 +43,7 @@ const pdfFilter = (req, file, cb) => {
     if (file.mimetype === 'application/pdf') {
         cb(null, true);
     } else {
-        cb(new Error('Only PDF files are qllowed for resume upload'), false);
+        cb(new Error('Only PDF files are allowed for resume upload'), false);
     }
 };
 

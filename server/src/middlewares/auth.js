@@ -24,7 +24,7 @@ export const protect = asyncHandler(async (req, res, next) => {
     }
 
     // Lazy-load User model to avoid circular dependency
-    const { default: User } = await import('../models/User.js');
+    const { default: User } = await import('../models/User.model.js');
     const user = await User.findById(decoded.id).select('+passwordChangedAt');
     if (!user) {
         throw new AppError('The account linked to this token no longer exists.', 401);

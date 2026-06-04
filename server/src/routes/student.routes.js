@@ -27,7 +27,7 @@ router.post(
 );
 router.post(
     '/photo',
-    uploadPhoto.single('single'),
+    uploadPhoto.single('profilePhoto'),
     studentController.uploadProfilePhoto
 );
 
