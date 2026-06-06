@@ -360,3 +360,135 @@ export const approveCompany = asyncHandler(async (req, res) => {
         data: { companyId: company._id, approvalStatus: 'approved' },
     });
 });
+
+//Reject Company
+export const rejectCompany = asyncHandler(async (req, res) => {
+    const { reason } = req.body;
+
+    const company = await CompanyProfile.findById(req.params.companyId).populate('user');
+    if (!company) throw new AppError('Company not found.', 404);
+
+    company.approvalStatus = 'rejected';
+    company.rejectionReason = reason || null;
+    await company.save();
+
+    await Notification.create({
+        recipient: company.user._id,
+        type: 'company_rejected',
+        title: 'Account Not Approved',
+        message: reason
+            ? `Your company account was not approved: ${reason}`
+            : 'Your company account was not approved. Please update your profile and resubmit.',
+        actionUrl: '/company/profile',
+    });
+
+    logger.info(`Company rejected: ${company.companyName} by admin ${req.user.id}`);
+
+    return sendSuccess(res, {
+        message: `${company.companyName} rejected.`,
+        data: { companyId: company._id, approvalStatus: 'rejected' },
+    });
+});
+
+//DRIVE MANAGEMENT
+//Get all drives
+export const getAllDrives = asyncHandler(async (req, res) => {
+    const { status, company } = req.query;
+
+    const filter = {};
+    if (status) filter.status = status;
+    if (company) filter.company = company;
+
+    const totalCount = await Drive.countDocuments(filter);
+    const { skip, limit, meta } = getPagination(req.query, totalCount);
+
+    const drives = await Drive
+        .find(filter)
+        .populate('company', 'companyName logo industry')
+        .populate('createdBy', 'name email')
+        .sort({ createdAt: -1 })
+        .skip(skip)
+        .limit(limit)
+        .select('-jobDescription -skillEmbedding')
+        .lean();
+
+    return sendSuccess(res, {
+        message: 'Drives fetched successfully.',
+        data: { drives },
+        meta,
+    });
+});
+
+// Get Single Drive
+export const getDrive = asyncHandler(async (req, res) => {
+    const drive = await Drive
+        .findById(req.params.driveId)
+        .populate('company', 'companyName logo industry companyType hrContact')
+        .populate('createdBy', 'name email')
+        .lean();
+
+    if (!drive) throw new AppError('Drive not found.', 404);
+
+    // Real-time application breakdown — not cached (admin needs live data)
+    const breakdown = await Application.aggregate([
+        { $match: { drive: drive._id } },
+        { $group: { _id: '$status', count: { $sum: 1 } } },
+    ]);
+
+    const statusBreakdown = {};
+    breakdown.forEach(({ _id, count }) => { statusBreakdown[_id] = count; });
+
+    return sendSuccess(res, {
+        message: 'Drive fetched successfully.',
+        data: { drive, statusBreakdown },
+    });
+});
+
+//Publish Drive
+export const publishDrive = asyncHandler(async (req, res) => {
+    const { isDreamCompany, aiWeights } = req.body;
+
+    const drive = await Drive.findById(req.params.driveId);
+    if (!drive) throw new AppError('Drive not found.', 404);
+
+    if (drive.status === 'published') {
+        throw new AppError('Drive is already published.', 400);
+    }
+
+    if (!['draft'].includes(drive.status)) {
+        throw new AppError(`Cannot publish a drive in "${drive.status}" status.`, 400);
+    }
+
+    // Apply admin overrides before publishing
+    const updates = { status: 'published' };
+    if (isDreamCompany !== undefined) updates.isDreamCompany = isDreamCompany;
+    if (aiWeights) {
+        // Validate weights sum to 100
+        const total = Object.values(aiWeights).reduce((a, b) => a + b, 0);
+        if (Math.round(total) !== 100) {
+            throw new AppError(`AI weights must sum to 100. Current sum: ${total}`, 400);
+        }
+        updates.aiWeights = aiWeights;
+    }
+
+    const published = await Drive.findByIdAndUpdate(
+        drive._id,
+        { $set: updates },
+        { new: true }
+    );
+
+    //Notify student eligible student
+    notifyEligibleStudents(published).catch((err) =>
+        logger.error(`Notification dispatch failed for drive ${published._id}: ${err.message}`)
+    );
+
+    // Invalidate drive-related cache
+    invalidatePrefix('admin:stats');
+
+    logger.info(`Drive published: ${drive._id} by admin ${req.user.id}`);
+
+    return sendSuccess(res, {
+        message: 'Drive published successfully. Eligible students will be notified.',
+        data: { drive: published },
+    });
+});
