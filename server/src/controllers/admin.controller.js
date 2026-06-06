@@ -208,8 +208,6 @@ export const getAllStudents = asyncHandler(async (req, res) => {
         if (maxCgpa) filter.cgpa.$lte = parseFloat(maxCgpa);
     }
 
-    // Text search on student name/email via populated User
-    // We use a two-step approach: find matching User IDs first, then filter profiles
     let userIdFilter = null;
     if (search) {
         const matchingUsers = await User.find({
@@ -265,3 +263,36 @@ export const getStudent = asyncHandler(async (req, res) => {
         data: { profile, applications },
     });
 });
+
+// Update Student Status
+export const updateStudentStatus = asyncHandler(async (req, res) => {
+    const { isActive, placementStatus, reason } = req.body;
+
+    const profile = await StudentProfile
+        .findById(req.params.studentId)
+        .populate('user')
+
+    if (!profile) throw new AppError('Student not found.', 404);
+
+    if (isActive !== undefined) {
+        await User.findByIdAndUpdate(profile.user._id, { isActive });
+    }
+
+    // Update placement status if provided
+    if (placementStatus) {
+        profile.placementStatus = placementStatus;
+        await profile.save();
+    }
+
+    // Invalidate overview stats cache — student count changed
+    invalidatePrefix('admin:stats');
+
+    logger.info(
+        `Admin ${req.user.id} updated student ${profile._id}: isActive=${isActive} placementStatus=${placementStatus}`
+    );
+
+    return sendSuccess(res, {
+        message: 'Student status updated successfully.',
+        data: { studentId: profile._id, isActive, placementStatus },
+    });
+})
