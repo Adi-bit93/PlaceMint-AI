@@ -25,5 +25,39 @@ export const updateStudentStatusValidator = [
 ];
 
 export const companyApprovalValidator = [
-    body('reason').optional().trim().isLength({ max: 500}),
+    body('reason').optional().trim().isLength({ max: 500 }),
+];
+
+export const publishDriveValidator = [
+    body('isDreamCompany').optional().isBoolean().toBoolean(),
+    body('aiWeights.skill').optional().isFloat({ min: 0, max: 100 }).toFloat(),
+    body('aiWeights.cgpa').optional().isFloat({ min: 0, max: 100 }).toFloat(),
+    body('aiWeights.projects').optional().isFloat({ min: 0, max: 100 }).toFloat(),
+    body('aiWeights.certifications').optional().isFloat({ min: 0, max: 100 }).toFloat(),
+];
+
+export const roundResultValidator = [
+    body('applicationId').notEmpty().isMongoId().withMessage('Invalid applicationId'),
+    body('roundOrder').notEmpty().isInt({ min: 1 }).toInt(),
+    body('result').notEmpty()
+        .isIn(['cleared', 'eliminated', 'absent']).withMessage('Invalid result'),
+    body('remarks').optional().trim().isLength({ max: 500 }),
+];
+
+export const announcementValidator = [
+    body('title').trim().notEmpty().withMessage('Title required')
+        .isLength({ max: 200 }),
+    body('message').trim().notEmpty().withMessage('Message required')
+        .isLength({ max: 2000 }),
+    body('targetAudience').optional()
+        .isIn(['all', 'students', 'companies', 'branch', 'drive']).withMessage('Invalid audience'),
+    body('targetBranch').optional()
+        .isIn(['CE', 'IT', 'CSE', 'ENTC', 'MECH', 'CIVIL', 'EE', 'OTHER']),
+    body('targetDriveId').optional().isMongoId(),
+];
+
+export const driveListValidator = [
+    query('status').optional()
+        .isIn(['draft', 'published', 'ongoing', 'completed', 'cancelled']),
+    query('company').optional().isMongoId(),
 ];
