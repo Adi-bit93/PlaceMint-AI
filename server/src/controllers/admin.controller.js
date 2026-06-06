@@ -325,3 +325,38 @@ export const getAllCompanies = asyncHandler(async (req, res) => {
         meta,
     })
 });
+
+export const approveCompany = asyncHandler(async (req, res) => {
+    const company = await CompanyProfile.findById(req.params.companyId).populate('user');
+    if (!company) throw new AppError('Company not found.', 404);
+
+    if (company.approvalStatus === 'approved') {
+        throw new AppError('Company is already approved.', 400);
+    }
+
+    company.approvalStatus = 'approved';
+    company.approvedBy = req.user.id;
+    company.approvedAt = new Date();
+    await company.save();
+
+    // Activate the company's User account
+    await User.findByIdAndUpdate(company.user._id, { isActive: true });
+
+    // Notify company
+    await Notification.create({
+        recipient: company.user._id,
+        type: 'company_approved',
+        title: 'Account Approved!',
+        message: 'Your company account has been approved. You can now post placement drives.',
+        actionUrl: '/company/drives',
+    });
+
+    invalidatePrefix('admin:stats');
+
+    logger.info(`Company approved: ${company.companyName} by admin ${req.user.id}`);
+
+    return sendSuccess(res, {
+        message: `${company.companyName} approved successfully.`,
+        data: { companyId: company._id, approvalStatus: 'approved' },
+    });
+});
