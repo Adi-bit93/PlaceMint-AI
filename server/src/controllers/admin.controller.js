@@ -492,3 +492,47 @@ export const publishDrive = asyncHandler(async (req, res) => {
         data: { drive: published },
     });
 });
+
+// Helper : notify eligble students when drive is published 
+const notifyEligibleStudents = async (drive) => {
+    const eligibilityFilter = {
+        placementStatus: { $in: ['not_placed'] },
+        cgpa: { $gte: drive.eligibility.minCgpa },
+        activeBacklogs: { $lte: drive.eligibility.maxActiveBacklogs },
+    };
+
+    if (drive.eligibility.allowedBranches.length > 0) {
+        eligibilityFilter.branch = { $in: drive.eligibility.allowedBranches };
+    }
+
+    if (drive.eligibility.allowedBatches.length > 0) {
+        eligibilityFilter.batch = { $in: drive.eligibility.allowedBatches };
+    }
+
+    const eligibleStudents = await StudentProfile
+        .find(eligibilityFilter)
+        .select('user')
+        .lean();
+
+    if (eligibleStudents.length === 0) return;
+
+    // Build all notification documents at once
+    const notifications = eligibleStudents.map((s) => ({
+        insertOne: {
+            document: {
+                recipient: s.user,
+                type: 'drive_published',
+                title: 'New Drive Available!',
+                message: `A new placement drive has been posted. Apply before the deadline.`,
+                actionUrl: `/student/drives/${drive._id}`,
+                relatedDrive: drive._id,
+                isRead: false,
+                createdAt: new Date(),
+            },
+        },
+    }));
+
+    await Notification.bulkWrite(notifications, { ordered: false });
+
+    logger.info(`Notified ${eligibleStudents.length} students for drive ${drive._id}`);
+};
