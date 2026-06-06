@@ -108,3 +108,87 @@ export const getOverviewStats = asyncHandler(async (req, res) => {
         data: { stats },
     });
 });
+
+// 2. GET PLACEMENT ANALYTICS
+
+export const getPlacementAnalytics = asyncHandler(async (req, res) => {
+    const CACHE_KEY = 'admin:stats:placement';
+    const TTL = 300;
+
+    const analytics = await cacheOrFetch(CACHE_KEY, async () => {
+        const [packageStats, topCompanies, skillDemand] = await Promise.all([
+
+            // Average package per branch — for salary bar chart
+            Application.aggregate([
+                { $match: { status: 'selected' } },
+                {
+                    $lookup: {
+                        from: 'studentprofiles',
+                        localField: 'student',
+                        foreignField: '_id',
+                        as: 'studentProfile',
+                    }
+                },
+                { $unwind: '$studentProfile' },
+                {
+                    $group: {
+                        _id: '$studentProfile.branch',
+                        avgPackage: { $avg: '$offer.ctc' },
+                        maxPackage: { $max: '$offer.ctc' },
+                        count: { $sum: 1 },
+                    }
+                },
+                { $sort: { avgPackage: -1 } },
+            ]),
+
+            // Top 10 hiring companies by offer count
+            Application.aggregate([
+                { $match: { status: 'selected' } },
+                {
+                    $lookup: {
+                        from: 'drives',
+                        localField: 'drive',
+                        foreignField: '_id',
+                        as: 'driveData',
+                    }
+                },
+                { $unwind: '$driveData' },
+                {
+                    $lookup: {
+                        from: 'companyprofiles',
+                        localField: 'driveData.company',
+                        foreignField: '_id',
+                        as: 'companyData',
+                    }
+                },
+                { $unwind: '$companyData' },
+                {
+                    $group: {
+                        _id: '$companyData._id',
+                        companyName: { $first: '$companyData.companyName' },
+                        hiredCount: { $sum: 1 },
+                        avgCTC: { $avg: '$offer.ctc' },
+                    }
+                },
+                { $sort: { hiredCount: -1 } },
+                { $limit: 10 },
+            ]),
+
+            // Most in-demand skills across all published drives
+            Drive.aggregate([
+                { $match: { status: { $in: ['published', 'ongoing', 'completed'] } } },
+                { $unwind: '$requiredSkills' },
+                { $group: { _id: '$requiredSkills', count: { $sum: 1 } } },
+                { $sort: { count: -1 } },
+                { $limit: 20 },
+            ]),
+        ]);
+
+        return { packageStats, topCompanies, skillDemand };
+    }, TTL);
+
+    return sendSuccess(res, {
+        message: 'Placement analytics fetched.',
+        data: { analytics },
+    });
+});
