@@ -295,4 +295,33 @@ export const updateStudentStatus = asyncHandler(async (req, res) => {
         message: 'Student status updated successfully.',
         data: { studentId: profile._id, isActive, placementStatus },
     });
-})
+});
+
+// Company Management 
+//Get all companies
+export const getAllCompanies = asyncHandler(async (req, res) => {
+    const filter = {};
+    if (approvalStatus) filter.approvalStatus = approvalStatus;
+    if (industry) filter.industry = industry;
+    if (search) {
+        filter.companyName = { $regex: search, $options: 'i' };
+    }
+
+    const totalCount = await CompanyProfile.countDocuments(filter);
+    const { skip, limit, meta } = getPagination(req.query, totalCount);
+
+    const companies = await CompanyProfile
+        .find(filter)
+        .populate('user', 'name email isActive createdAt lastLogin')
+        .sort({ createdAt: -1 })
+        .skip(skip)
+        .limit(limit)
+        .select('companyName industry companyType approvalStatus logo totalHired averagePackage hrContact createdAt')
+        .lean();
+
+    return sendSuccess(res, {
+        message: 'Companies fetched successfully.',
+        data: { companies },
+        meta,
+    })
+});
