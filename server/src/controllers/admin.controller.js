@@ -16,8 +16,7 @@ export const getOverviewStats = asyncHandler(async (req, res) => {
     const TTL = 120; // 2 minutes
 
     const stats = await cacheOrFetch(CACHE_KEY, async () => {
-        // Run all aggregations in parallel — not sequentially
-        // parallel: ~80ms total | sequential: ~320ms total
+
         const [studentStats, companyStats, driveStats, applicationStats] = await Promise.all([
 
             // Student aggregation — counts by placement status and branch
@@ -110,7 +109,6 @@ export const getOverviewStats = asyncHandler(async (req, res) => {
 });
 
 // 2. GET PLACEMENT ANALYTICS
-
 export const getPlacementAnalytics = asyncHandler(async (req, res) => {
     const CACHE_KEY = 'admin:stats:placement';
     const TTL = 300;
@@ -190,5 +188,80 @@ export const getPlacementAnalytics = asyncHandler(async (req, res) => {
     return sendSuccess(res, {
         message: 'Placement analytics fetched.',
         data: { analytics },
+    });
+});
+
+// Student Management
+
+// Get All Student
+export const getAllStudents = asyncHandler(async (req, res) => {
+    const { branch, placementStatus, minCgpa, maxCgpa, batch, search } = req.query;
+
+    // Build filter dynamically — only add fields that were provided
+    const filter = {};
+    if (branch) filter.branch = branch;
+    if (placementStatus) filter.placementStatus = placementStatus;
+    if (batch) filter.batch = parseInt(batch);
+    if (minCgpa || maxCgpa) {
+        filter.cgpa = {};
+        if (minCgpa) filter.cgpa.$gte = parseFloat(minCgpa);
+        if (maxCgpa) filter.cgpa.$lte = parseFloat(maxCgpa);
+    }
+
+    // Text search on student name/email via populated User
+    // We use a two-step approach: find matching User IDs first, then filter profiles
+    let userIdFilter = null;
+    if (search) {
+        const matchingUsers = await User.find({
+            role: 'student',
+            $or: [
+                { name: { $regex: search, $options: 'i' } },
+                { email: { $regex: search, $options: 'i' } },
+            ],
+        }).select('_id').lean();
+
+        userIdFilter = matchingUsers.map((u) => u._id);
+        filter.user = { $in: userIdFilter };
+    }
+
+    const totalCount = await StudentProfile.countDocuments(filter);
+    const { skip, limit, meta } = getPagination(req.query, totalCount);
+
+    const students = await StudentProfile
+        .find(filter)
+        .populate('user', 'name email profilePhoto isActive isEmailVerified createdAt lastLogin')
+        .sort({ createdAt: -1 })
+        .skip(skip)
+        .limit(limit)
+        .select('user branch batch cgpa activeBacklogs placementStatus profileCompleteness skills enrollmentNumber createdAt')
+        .lean(); // lean() returns plain objects instead of Mongoose docs → 40% faster, less memory
+
+    return sendSuccess(res, {
+        message: 'Students fetched successfully.',
+        data: { students },
+        meta,
+    });
+});
+
+//4. GET SINGLE STUDENT
+export const getStudent = asyncHandler(async (req, res) => {
+    const profile = await StudentProfile
+        .findById(req.params.studentId)
+        .populate('user', 'name email profilePhoto isActive isEmailVerified createdAt lastLogin')
+        .lean();
+
+    if (!profile) throw new AppError('Student not found.', 404);
+
+    // Get application history for this student
+    const applications = await Application
+        .find({ student: profile._id })
+        .populate('drive', 'jobRole ctc status applicationDeadline')
+        .sort({ appliedAt: -1 })
+        .limit(10)
+        .lean();
+
+    return sendSuccess(res, {
+        message: 'Student fetched successfully.',
+        data: { profile, applications },
     });
 });
