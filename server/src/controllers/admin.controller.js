@@ -536,3 +536,95 @@ const notifyEligibleStudents = async (drive) => {
 
     logger.info(`Notified ${eligibleStudents.length} students for drive ${drive._id}`);
 };
+
+//CLOSE / CANCEL DRIVE
+export const updateDriveStatus = asyncHandler(async (req, res) => {
+    const { status } = req.body;
+    const allowed = ['ongoing', 'completed', 'cancelled'];
+
+    if (!allowed.includes(status)) {
+        throw new AppError(`Status must be one of: ${allowed.join(', ')}`, 400);
+    }
+
+    const drive = await Drive.findByIdAndUpdate(
+        req.params.driveId,
+        { $set: { status } },
+        { new: true }
+    );
+
+    if (!drive) throw new AppError('Drive not found.', 404);
+
+    invalidatePrefix('admin:stats');
+
+    logger.info(`Drive ${drive._id} status → ${status} by admin ${req.user.id}`);
+
+    return sendSuccess(res, {
+        message: `Drive status updated to "${status}".`,
+        data: { driveId: drive._id, status },
+    });
+});
+
+//Update Round Result
+export const updateRoundResult = asyncHandler(async (req, res) => {
+    const { applicationId, roundOrder, result, remarks } = req.body;
+
+    const drive = await Drive.findById(req.params.driveId);
+    if (!drive) throw new AppError('Drive not found.', 404);
+
+    const application = await Application.findOne({
+        _id: applicationId,
+        drive: drive._id,
+    });
+    if (!application) throw new AppError('Application not found.', 404);
+
+    // Upsert round result
+    const existingIdx = application.roundResults
+        .findIndex((r) => r.roundOrder === roundOrder);
+
+    const roundEntry = {
+        roundName: drive.rounds.find((r) => r.order === roundOrder)?.name || `Round ${roundOrder}`,
+        roundOrder,
+        result,
+        remarks,
+        updatedAt: new Date(),
+    };
+
+    if (existingIdx !== -1) {
+        application.roundResults[existingIdx] = roundEntry;
+    } else {
+        application.roundResults.push(roundEntry);
+    }
+
+    // Update application status
+    if (result === 'cleared') {
+        application.status = 'in_process';
+        application.currentRound = roundOrder;
+    } else {
+        application.status = 'rejected';
+        application.rejectedAt = new Date();
+    }
+
+    await application.save();
+
+    // Notify student of round result
+    await Notification.create({
+        recipient: application.student,
+        type: 'round_result',
+        title: result === 'cleared' ? '🎉 Round Cleared!' : 'Round Result Updated',
+        message: result === 'cleared'
+            ? `You cleared Round ${roundOrder} for a placement drive. Stay tuned for next steps.`
+            : `Your application status has been updated for Round ${roundOrder}.`,
+        relatedApplication: application._id,
+        relatedDrive: drive._id,
+    });
+
+    return sendSuccess(res, {
+        message: 'Round result updated.',
+        data: {
+            applicationId: application._id,
+            roundOrder,
+            result,
+            applicationStatus: application.status,
+        },
+    });
+});
