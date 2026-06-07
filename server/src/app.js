@@ -20,6 +20,8 @@ import { AppError } from './utils/apiResponse.js';
 import authRoutes from './routes/auth.routes.js';
 import studentRoutes from './routes/student.routes.js';
 import companyRoutes from './routes/company.routes.js';
+import adminRoutes from './routes/admin.routes.js';
+
 
 const app = express();
 const server = http.createServer(app);  // raw server - for socket.io
@@ -144,6 +146,7 @@ app.get('/favicon.ico', (req, res) => {
 app.use('/api/v1/auth', authRoutes);
 app.use('/api/v1/student', studentRoutes);
 app.use('/api/v1/companies', companyRoutes);
+app.use('/api/v1/admin', adminRoutes);
 
 
 app.use((req, res, next) => {
