@@ -628,3 +628,117 @@ export const updateRoundResult = asyncHandler(async (req, res) => {
         },
     });
 });
+
+// Announcements
+// Create Announcement
+export const createAnnouncement = asyncHandler(async (req, res) => {
+    const { title, message, targetAudience = 'all', targetBranch, targetDriveId } = req.body;
+
+    // Find target user IDs based on audience
+    let recipientUserIds = [];
+
+    if (targetAudience === 'all') {
+        const users = await User
+            .find({ isActive: true, role: { $in: ['student', 'company'] } })
+            .select('_id')
+            .lean();
+        recipientUserIds = users.map((u) => u._id);
+
+    } else if (targetAudience === 'students') {
+        const users = await User
+            .find({ isActive: true, role: 'student' })
+            .select('_id')
+            .lean();
+        recipientUserIds = users.map((u) => u._id);
+
+    } else if (targetAudience === 'companies') {
+        const users = await User
+            .find({ isActive: true, role: 'company' })
+            .select('_id')
+            .lean();
+        recipientUserIds = users.map((u) => u._id);
+
+    } else if (targetAudience === 'branch' && targetBranch) {
+        // Students in a specific branch
+        const profiles = await StudentProfile
+            .find({ branch: targetBranch })
+            .select('user')
+            .lean();
+        recipientUserIds = profiles.map((p) => p.user);
+
+    } else if (targetAudience === 'drive' && targetDriveId) {
+        // Students who applied to a specific drive
+        const drive = await Drive.findById(targetDriveId);
+        if (!drive) throw new AppError('Drive not found.', 404);
+
+        const applications = await Application
+            .find({ drive: targetDriveId })
+            .populate('student', 'user')
+            .lean();
+        recipientUserIds = applications.map((a) => a.student?.user).filter(Boolean);
+    }
+
+    if (recipientUserIds.length === 0) {
+        return sendSuccess(res, {
+            message: 'No recipients found for the selected audience.',
+            data: { sent: 0 },
+        });
+    }
+
+    // Bulk insert all notifications — single DB call
+    const notifications = recipientUserIds.map((userId) => ({
+        insertOne: {
+            document: {
+                recipient: userId,
+                type: 'announcement',
+                title,
+                message,
+                isRead: false,
+                createdAt: new Date(),
+            },
+        },
+    }));
+
+    await Notification.bulkWrite(notifications, { ordered: false });
+
+    logger.info(
+        `Announcement sent: "${title}" → ${recipientUserIds.length} recipients by admin ${req.user.id}`
+    );
+
+    return sendSuccess(res, {
+        statusCode: 201,
+        message: `Announcement sent to ${recipientUserIds.length} recipient(s).`,
+        data: { title, sent: recipientUserIds.length, targetAudience },
+    });
+});
+
+//For pending approval
+export const getPendingApprovals = asyncHandler(async (req, res) => {
+    // Run both queries in parallel
+    const [pendingCompanies, draftDrives] = await Promise.all([
+        CompanyProfile
+            .find({ approvalStatus: 'pending' })
+            .populate('user', 'name email createdAt')
+            .select('companyName industry companyType hrContact createdAt')
+            .sort({ createdAt: 1 }) // oldest first — FIFO queue
+            .limit(20)
+            .lean(),
+
+        Drive
+            .find({ status: 'draft' })
+            .populate('company', 'companyName logo')
+            .select('jobRole ctc applicationDeadline createdAt')
+            .sort({ createdAt: 1 })
+            .limit(20)
+            .lean(),
+    ]);
+
+    return sendSuccess(res, {
+        message: 'Pending approvals fetched.',
+        data: {
+            pendingCompanies,
+            draftDrives,
+            totalPending: pendingCompanies.length + draftDrives.length,
+        },
+    });
+});
