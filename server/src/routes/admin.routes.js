@@ -9,7 +9,8 @@ import {
     companyApprovalValidator,
     publishDriveValidator,
     announcementValidator,
-    driveListValidator
+    driveListValidator,
+    roundResultValidator
 } from '../validators/admin.validators.js';
 const router = Router();
 
